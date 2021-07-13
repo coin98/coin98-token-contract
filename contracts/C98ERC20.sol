@@ -9,11 +9,16 @@ interface IERC20 {
   function allowance(address owner, address spender) external view returns (uint256);
   function approve(address spender, uint256 amount) external returns (bool);
   function mint(address account, uint256 amount) external returns (bool);
-  function burn(address account, uint256 amount) external returns (bool);
+  function burn(uint256 amount) external returns (bool);
 
   function transferFrom(
     address sender,
     address recipient,
+    uint256 amount
+  ) external returns (bool);
+
+  function burnFrom(
+    address account,
     uint256 amount
   ) external returns (bool);
 
@@ -168,9 +173,8 @@ contract ERC20 is Context, Ownable, Pausable, IERC20, IERC20Metadata {
     return true;
   }
 
-  function burn(address account, uint256 amount) public override returns (bool) {
-    _burn(account,amount);
-    return true;
+  function burn(uint256 amount) public override returns (bool) {
+    _burn(_msgSender(), amount);
   }
 
   function transferFrom(
@@ -187,6 +191,15 @@ contract ERC20 is Context, Ownable, Pausable, IERC20, IERC20Metadata {
     }
 
     return true;
+  }
+
+  function burnFrom(address account, uint256 amount) public override returns (bool) {
+    uint256 currentAllowance = allowance(account, _msgSender());
+    require(currentAllowance >= amount, "ERC20: burn amount exceeds allowance");
+    unchecked {
+      _approve(account, _msgSender(), currentAllowance - amount);
+    }
+    _burn(account, amount);
   }
 
   function increaseAllowance(address spender, uint256 addedValue) public returns (bool) {
