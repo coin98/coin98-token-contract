@@ -168,15 +168,14 @@ contract ERC20 is ERC20Interface, Owned {
   }
 
   function mint(address to, uint256 tokens) onlyOwner public returns (bool success) {
-     balances[to] = balances[to].add(tokens);
-     emit Transfer(address(0), to, tokens);
-     _totalSupply = SafeMath.add(_totalSupply, tokens);
-     return true;
+    balances[to] = balances[to].add(tokens);
+    emit Transfer(address(0), to, tokens);
+    _totalSupply = SafeMath.add(_totalSupply, tokens);
+    return true;
   }
 
   function burn(uint256 _value) public returns(bool success) {
-    require(balances[msg.sender] < _value);
-    require(_value <= 0);
+    require(balances[msg.sender] >= _value);
     balances[msg.sender] = SafeMath.safeSub(balances[msg.sender], _value);
     _totalSupply = SafeMath.safeSub(_totalSupply, _value);
     return true;
