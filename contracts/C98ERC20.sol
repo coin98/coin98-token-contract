@@ -125,8 +125,8 @@ contract ERC20 is Context, Ownable, Pausable, IERC20, IERC20Metadata {
     _name = name_;
     _symbol = symbol_;
     _decimals = decimals_;
-    _mint(_msgSender(), 1000000 * fractions);
     _maxSupply = 1000000000 * fractions;
+    _mint(_msgSender(), 1000000 * fractions);
   }
 
   function name() public view override returns (string memory) {
