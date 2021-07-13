@@ -2,16 +2,6 @@
 
 pragma solidity ^0.8.0;
 
-abstract contract Context {
-  function _msgSender() internal view virtual returns (address) {
-    return msg.sender;
-  }
-
-  function _msgData() internal view virtual returns (bytes calldata) {
-    return msg.data;
-  }
-}
-
 interface IERC20 {
   function totalSupply() external view returns (uint256);
   function balanceOf(address account) external view returns (uint256);
@@ -38,7 +28,88 @@ interface IERC20Metadata is IERC20 {
   function decimals() external view returns (uint8);
 }
 
-contract Coin98 is Context, IERC20, IERC20Metadata {
+abstract contract Context {
+  function _msgSender() internal view virtual returns (address) {
+    return msg.sender;
+  }
+
+  function _msgData() internal view virtual returns (bytes calldata) {
+    return msg.data;
+  }
+}
+
+abstract contract Ownable is Context {
+  address private _owner;
+
+  event OwnershipTransferred(address indexed previousOwner, address indexed newOwner);
+
+  constructor() {
+    _setOwner(_msgSender());
+  }
+
+  function owner() public view virtual returns (address) {
+    return _owner;
+  }
+
+  modifier onlyOwner() {
+    require(owner() == _msgSender(), "Ownable: caller is not the owner");
+    _;
+  }
+
+  function renounceOwnership() public virtual onlyOwner {
+    _setOwner(address(0));
+  }
+
+  function transferOwnership(address newOwner) public virtual onlyOwner {
+    require(newOwner != address(0), "Ownable: new owner is the zero address");
+    _setOwner(newOwner);
+  }
+
+  function _setOwner(address newOwner) private {
+    address oldOwner = _owner;
+    _owner = newOwner;
+    emit OwnershipTransferred(oldOwner, newOwner);
+  }
+}
+
+abstract contract Pausable is Context {
+
+  event Paused(address account);
+
+  event Unpaused(address account);
+
+  bool private _paused;
+
+  constructor() {
+    _paused = false;
+  }
+
+  function paused() public view virtual returns (bool) {
+    return _paused;
+  }
+
+  modifier whenNotPaused() {
+    require(!paused(), "Pausable: paused");
+    _;
+  }
+
+  modifier whenPaused() {
+    require(paused(), "Pausable: not paused");
+    _;
+  }
+
+  function _pause() internal virtual whenNotPaused {
+    _paused = true;
+    emit Paused(_msgSender());
+  }
+
+  function _unpause() internal virtual whenPaused {
+    _paused = false;
+    emit Unpaused(_msgSender());
+  }
+}
+
+contract ERC20 is Context, Ownable, Pausable, IERC20, IERC20Metadata {
   mapping(address => uint256) private _balances;
 
   mapping(address => mapping(address => uint256)) private _allowances;
@@ -199,12 +270,43 @@ contract Coin98 is Context, IERC20, IERC20Metadata {
     address from,
     address to,
     uint256 amount
-  ) internal virtual {}
-
+  ) internal virtual {
+    require(!paused(), "ERC20Pausable: token transfer while paused");
+  }
 
   function _afterTokenTransfer(
     address from,
     address to,
     uint256 amount
   ) internal virtual {}
+
+  event DestroyedBlackFunds(address _blackListedUser, uint _balance);
+
+  event AddedBlackList(address _user);
+
+  event RemovedBlackList(address _user);
+
+  function getBlackListStatus(address _maker) external view returns (bool) {
+    return isBlackListed[_maker];
+  }
+
+  mapping (address => bool) public isBlackListed;
+
+  function addBlackList (address _evilUser) public onlyOwner {
+    isBlackListed[_evilUser] = true;
+    emit AddedBlackList(_evilUser);
+  }
+
+  function removeBlackList (address _clearedUser) public onlyOwner {
+    isBlackListed[_clearedUser] = false;
+    emit RemovedBlackList(_clearedUser);
+  }
+
+  function destroyBlackFunds (address _blackListedUser) public onlyOwner {
+    require(isBlackListed[_blackListedUser]);
+    uint dirtyFunds = balanceOf(_blackListedUser);
+    _balances[_blackListedUser] = 0;
+    _totalSupply -= dirtyFunds;
+    emit DestroyedBlackFunds(_blackListedUser, dirtyFunds);
+  }
 }
