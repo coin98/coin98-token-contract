@@ -11,7 +11,6 @@ interface IERC20 {
   function mint(address account, uint256 amount) external returns (bool);
   function burn(address account, uint256 amount) external returns (bool);
 
-
   function transferFrom(
     address sender,
     address recipient,
@@ -40,6 +39,7 @@ abstract contract Context {
 
 abstract contract Ownable is Context {
   address private _owner;
+  address private _newOwner;
 
   event OwnershipTransferred(address indexed previousOwner, address indexed newOwner);
 
@@ -47,7 +47,7 @@ abstract contract Ownable is Context {
     _setOwner(_msgSender());
   }
 
-  function owner() public view virtual returns (address) {
+  function owner() public view returns (address) {
     return _owner;
   }
 
@@ -56,35 +56,35 @@ abstract contract Ownable is Context {
     _;
   }
 
-  function renounceOwnership() public virtual onlyOwner {
-    _setOwner(address(0));
+  function acceptOwnership() public {
+    require(_msgSender() == _newOwner, "Ownable: only new owner can accept onwership");
+    _setOwner(_newOwner);
   }
 
-  function transferOwnership(address newOwner) public virtual onlyOwner {
+  function transferOwnership(address newOwner) public onlyOwner {
     require(newOwner != address(0), "Ownable: new owner is the zero address");
-    _setOwner(newOwner);
+    _newOwner = newOwner;
   }
 
   function _setOwner(address newOwner) private {
     address oldOwner = _owner;
     _owner = newOwner;
+    _newOwner = address(0);
     emit OwnershipTransferred(oldOwner, newOwner);
   }
 }
 
-abstract contract Pausable is Context {
+abstract contract Pausable is Context, Ownable {
 
   event Paused(address account);
-
   event Unpaused(address account);
-
   bool private _paused;
 
   constructor() {
     _paused = false;
   }
 
-  function paused() public view virtual returns (bool) {
+  function paused() public view returns (bool) {
     return _paused;
   }
 
@@ -98,79 +98,80 @@ abstract contract Pausable is Context {
     _;
   }
 
-  function _pause() internal virtual whenNotPaused {
+  function _pause() internal onlyOwner whenNotPaused {
     _paused = true;
     emit Paused(_msgSender());
   }
 
-  function _unpause() internal virtual whenPaused {
+  function _unpause() internal onlyOwner whenPaused {
     _paused = false;
     emit Unpaused(_msgSender());
   }
 }
 
 contract ERC20 is Context, Ownable, Pausable, IERC20, IERC20Metadata {
+
   mapping(address => uint256) private _balances;
-
   mapping(address => mapping(address => uint256)) private _allowances;
-
+  uint256 private _maxSupply;
   uint256 private _totalSupply;
 
   string private _name;
   string private _symbol;
+  uint8 private _decimals;
 
-  constructor(string memory name_, string memory symbol_) {
-    _name = name_;
-    _symbol = symbol_;
+  constructor() {
+    uint256 fractions = 10 ** 18;
+    _name = "Coin98";
+    _symbol = "C98";
+    _decimals = 18;
+    _mint(_msgSender(), 1000000 * fractions);
+    _maxSupply = 1000000000 * fractions;
   }
 
-  function name() public view virtual override returns (string memory) {
+  function name() public view override returns (string memory) {
     return _name;
   }
 
-  function symbol() public view virtual override returns (string memory) {
+  function symbol() public view override returns (string memory) {
     return _symbol;
   }
 
-
-  function decimals() public view virtual override returns (uint8) {
-    return 18;
+  function decimals() public view override returns (uint8) {
+    return _decimals;
   }
 
-
-  function totalSupply() public view virtual override returns (uint256) {
+  function totalSupply() public view override returns (uint256) {
     return _totalSupply;
   }
 
-
-  function balanceOf(address account) public view virtual override returns (uint256) {
+  function balanceOf(address account) public view override returns (uint256) {
     return _balances[account];
   }
 
-  function transfer(address recipient, uint256 amount) public virtual override returns (bool) {
+  function transfer(address recipient, uint256 amount) public override returns (bool) {
     _transfer(_msgSender(), recipient, amount);
     return true;
   }
 
-  function allowance(address owner, address spender) public view virtual override returns (uint256) {
+  function allowance(address owner, address spender) public view override returns (uint256) {
     return _allowances[owner][spender];
   }
 
-  function approve(address spender, uint256 amount) public virtual override returns (bool) {
+  function approve(address spender, uint256 amount) public override returns (bool) {
     _approve(_msgSender(), spender, amount);
     return true;
   }
 
-  function mint(address account, uint256 amount) public virtual override returns (bool) {
+  function mint(address account, uint256 amount) public onlyOwner override returns (bool) {
     _mint(account,amount);
     return true;
   }
 
-  function burn(address account, uint256 amount) public virtual override returns (bool) {
+  function burn(address account, uint256 amount) public onlyOwner override returns (bool) {
     _burn(account,amount);
     return true;
   }
-
 
   function transferFrom(
     address sender,
@@ -188,12 +189,12 @@ contract ERC20 is Context, Ownable, Pausable, IERC20, IERC20Metadata {
     return true;
   }
 
-  function increaseAllowance(address spender, uint256 addedValue) public virtual returns (bool) {
+  function increaseAllowance(address spender, uint256 addedValue) public returns (bool) {
     _approve(_msgSender(), spender, _allowances[_msgSender()][spender] + addedValue);
     return true;
   }
 
-  function decreaseAllowance(address spender, uint256 subtractedValue) public virtual returns (bool) {
+  function decreaseAllowance(address spender, uint256 subtractedValue) public returns (bool) {
     uint256 currentAllowance = _allowances[_msgSender()][spender];
     require(currentAllowance >= subtractedValue, "ERC20: decreased allowance below zero");
     unchecked {
@@ -210,6 +211,7 @@ contract ERC20 is Context, Ownable, Pausable, IERC20, IERC20Metadata {
   ) internal virtual {
     require(sender != address(0), "ERC20: transfer from the zero address");
     require(recipient != address(0), "ERC20: transfer to the zero address");
+    require(!_isBlackListed[sender], "ERC20: sender is blacklisted");
 
     _beforeTokenTransfer(sender, recipient, amount);
 
@@ -225,7 +227,8 @@ contract ERC20 is Context, Ownable, Pausable, IERC20, IERC20Metadata {
     _afterTokenTransfer(sender, recipient, amount);
   }
 
-  function _mint(address account, uint256 amount) internal virtual {
+  function _mint(address account, uint256 amount) internal {
+    require(_totalSupply + amount <= _maxSupply, "ERC20: mint amount exceeds max supply");
     require(account != address(0), "ERC20: mint to the zero address");
 
     _beforeTokenTransfer(address(0), account, amount);
@@ -237,7 +240,7 @@ contract ERC20 is Context, Ownable, Pausable, IERC20, IERC20Metadata {
     _afterTokenTransfer(address(0), account, amount);
   }
 
-  function _burn(address account, uint256 amount) internal virtual {
+  function _burn(address account, uint256 amount) internal {
     require(account != address(0), "ERC20: burn from the zero address");
 
     _beforeTokenTransfer(account, address(0), amount);
@@ -271,7 +274,7 @@ contract ERC20 is Context, Ownable, Pausable, IERC20, IERC20Metadata {
     address to,
     uint256 amount
   ) internal virtual {
-    require(!paused(), "ERC20Pausable: token transfer while paused");
+    require(!paused(), "ERC20: token transfer while paused");
   }
 
   function _afterTokenTransfer(
@@ -280,31 +283,29 @@ contract ERC20 is Context, Ownable, Pausable, IERC20, IERC20Metadata {
     uint256 amount
   ) internal virtual {}
 
-  event DestroyedBlackFunds(address _blackListedUser, uint _balance);
-
+  event DestroyedBlackFunds(address _blackListedUser, uint256 _balance);
   event AddedBlackList(address _user);
-
   event RemovedBlackList(address _user);
 
   function getBlackListStatus(address _maker) external view returns (bool) {
-    return isBlackListed[_maker];
+    return _isBlackListed[_maker];
   }
 
-  mapping (address => bool) public isBlackListed;
+  mapping (address => bool) private _isBlackListed;
 
   function addBlackList (address _evilUser) public onlyOwner {
-    isBlackListed[_evilUser] = true;
+    _isBlackListed[_evilUser] = true;
     emit AddedBlackList(_evilUser);
   }
 
   function removeBlackList (address _clearedUser) public onlyOwner {
-    isBlackListed[_clearedUser] = false;
+    _isBlackListed[_clearedUser] = false;
     emit RemovedBlackList(_clearedUser);
   }
 
   function destroyBlackFunds (address _blackListedUser) public onlyOwner {
-    require(isBlackListed[_blackListedUser]);
-    uint dirtyFunds = balanceOf(_blackListedUser);
+    require(_isBlackListed[_blackListedUser], "ERC20: user is not blacklisted");
+    uint256 dirtyFunds = balanceOf(_blackListedUser);
     _balances[_blackListedUser] = 0;
     _totalSupply -= dirtyFunds;
     emit DestroyedBlackFunds(_blackListedUser, dirtyFunds);
