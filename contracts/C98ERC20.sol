@@ -120,11 +120,11 @@ contract ERC20 is Context, Ownable, Pausable, IERC20, IERC20Metadata {
   string private _symbol;
   uint8 private _decimals;
 
-  constructor() {
-    uint256 fractions = 10 ** 18;
-    _name = "Coin98";
-    _symbol = "C98";
-    _decimals = 18;
+  constructor(string memory name_, string memory symbol_, uint8 decimals_) {
+    uint256 fractions = 10 ** uint256(decimals_);
+    _name = name_;
+    _symbol = symbol_;
+    _decimals = decimals_;
     _mint(_msgSender(), 1000000 * fractions);
     _maxSupply = 1000000000 * fractions;
   }
