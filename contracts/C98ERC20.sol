@@ -168,7 +168,7 @@ contract ERC20 is Context, Ownable, Pausable, IERC20, IERC20Metadata {
     return true;
   }
 
-  function burn(address account, uint256 amount) public onlyOwner override returns (bool) {
+  function burn(address account, uint256 amount) public override returns (bool) {
     _burn(account,amount);
     return true;
   }
