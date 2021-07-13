@@ -1,0 +1,19 @@
+{
+  "name": "coin98-token-ethereum-contract",
+  "version": "1.0.0",
+  "description": "Coin98 Lab Token Contract for Ethereum blockchain",
+  "main": "truffle-config.js",
+  "directories": {
+    "test": "test"
+  },
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://bitbucket.org/coin98/coin98-token-eth-contract.git"
+  },
+  "author": "Tung 'Lukaz' Nguyen",
+  "license": "ISC",
+  "homepage": "https://bitbucket.org/coin98/coin98-token-eth-contract#readme"
+}
