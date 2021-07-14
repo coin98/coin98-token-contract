@@ -484,7 +484,7 @@ abstract contract Pausable is Context, Ownable {
  * functions have been added to mitigate the well-known issues around setting
  * allowances. See {IERC20-approve}.
  */
-contract ERC20 is Context, Ownable, Pausable, IERC20 {
+contract Coin98 is Context, Ownable, Pausable, IERC20 {
   using SafeMath for uint256;
 
   mapping (address => uint256) private _balances;
@@ -507,13 +507,12 @@ contract ERC20 is Context, Ownable, Pausable, IERC20 {
    * All three of these values are immutable: they can only be set once during
    * construction.
    */
-  constructor(string memory name_, string memory symbol_, uint8 decimals_) {
-    uint256 fractions = 10 ** uint256(decimals_);
-    _name = name_;
-    _symbol = symbol_;
-    _decimals = decimals_;
+  constructor() {
+    uint256 fractions = 10 ** uint256(18);
+    _name = "Coin98";
+    _symbol = "C98";
+    _decimals = 18;
     _maxSupply = 1000000000 * fractions;
-    _mint(_msgSender(), 1000000 * fractions);
   }
 
   /**
