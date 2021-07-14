@@ -356,7 +356,7 @@ abstract contract Ownable is Context {
    * Can only be called by the newly transfered owner.
    */
   function acceptOwnership() public {
-    require(_msgSender() == _newOwner, "Ownable: only new owner can accept onwership");
+    require(_msgSender() == _newOwner, "Ownable: only new owner can accept ownership");
     address oldOwner = _owner;
     _owner = _newOwner;
     _newOwner = address(0);
@@ -379,58 +379,58 @@ abstract contract Ownable is Context {
  * mechanism that can be triggered by an authorized account.
  *
  * This module is used through inheritance. It will make available the
- * modifiers `whenNotPaused` and `whenPaused`, which can be applied to
+ * modifiers `whenNotFrozen` and `whenFrozen`, which can be applied to
  * the functions of your contract. Note that they will not be pausable by
  * simply including this module, only once the modifiers are put in place.
  */
 abstract contract Pausable is Context, Ownable {
   /**
-   * @dev Emitted when the pause is triggered by `account`.
+   * @dev Emitted when the freeze is triggered by `account`.
    */
-  event Paused(address account);
+  event Frozen(address account);
 
   /**
-   * @dev Emitted when the pause is lifted by `account`.
+   * @dev Emitted when the freeze is lifted by `account`.
    */
-  event Unpaused(address account);
+  event Unfrozen(address account);
 
-  bool private _paused;
+  bool private _frozen;
 
   /**
-   * @dev Initializes the contract in unpaused state.
+   * @dev Initializes the contract in unfrozen state.
    */
   constructor () {
-    _paused = false;
+    _frozen = false;
   }
 
   /**
-   * @dev Returns true if the contract is paused, and false otherwise.
+   * @dev Returns true if the contract is frozen, and false otherwise.
    */
   function frozen() public view returns (bool) {
-    return _paused;
+    return _frozen;
   }
 
   /**
-   * @dev Modifier to make a function callable only when the contract is not paused.
+   * @dev Modifier to make a function callable only when the contract is not frozen.
    *
    * Requirements:
    *
-   * - The contract must not be paused.
+   * - The contract must not be frozen.
    */
-  modifier whenNotPaused() {
-    require(!frozen(), "Pausable: paused");
+  modifier whenNotFrozen() {
+    require(!frozen(), "Freezable: frozen");
     _;
   }
 
   /**
-   * @dev Modifier to make a function callable only when the contract is paused.
+   * @dev Modifier to make a function callable only when the contract is frozen.
    *
    * Requirements:
    *
-   * - The contract must be paused.
+   * - The contract must be frozen.
    */
-  modifier whenPaused() {
-    require(frozen(), "Pausable: not paused");
+  modifier whenFrozen() {
+    require(frozen(), "Freezable: frozen");
     _;
   }
 
@@ -441,9 +441,9 @@ abstract contract Pausable is Context, Ownable {
    *
    * - The contract must not be paused.
    */
-  function _pause() internal whenNotPaused {
-    _paused = true;
-    emit Paused(_msgSender());
+  function _freeze() internal whenNotFrozen {
+    _frozen = true;
+    emit Frozen(_msgSender());
   }
 
   /**
@@ -454,9 +454,9 @@ abstract contract Pausable is Context, Ownable {
    * - Can only be called by the current owner.
    * - The contract must be paused.
    */
-  function _unpause() internal whenPaused {
-    _paused = false;
-    emit Unpaused(_msgSender());
+  function _unfreeze() internal whenFrozen {
+    _frozen = false;
+    emit Unfrozen(_msgSender());
   }
 }
 
@@ -692,7 +692,7 @@ contract Coin98 is Context, Ownable, Pausable, IERC20 {
    * The contract must not be paused.
    */
   function freeze() public onlyOwner {
-    _pause();
+    _freeze();
   }
 
   /**
@@ -702,7 +702,7 @@ contract Coin98 is Context, Ownable, Pausable, IERC20 {
    * The contract must be paused.
    */
   function unfreeze() public onlyOwner {
-    _unpause();
+    _unfreeze();
   }
 
   /**
