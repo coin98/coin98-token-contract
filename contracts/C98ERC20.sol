@@ -356,6 +356,7 @@ abstract contract Ownable is Context {
    * Can only be called by the newly transfered owner.
    */
   function acceptOwnership() public {
+    require(_msgSender() == _newOwner, "Ownable: only new owner can accept onwership");
     address oldOwner = _owner;
     _owner = _newOwner;
     _newOwner = address(0);
