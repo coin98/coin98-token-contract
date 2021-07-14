@@ -439,7 +439,7 @@ abstract contract Pausable is Context, Ownable {
    *
    * Requirements:
    *
-   * - The contract must not be paused.
+   * - The contract must not be frozen.
    */
   function _freeze() internal whenNotFrozen {
     _frozen = true;
@@ -452,7 +452,7 @@ abstract contract Pausable is Context, Ownable {
    * Requirements:
    *
    * - Can only be called by the current owner.
-   * - The contract must be paused.
+   * - The contract must be frozen.
    */
   function _unfreeze() internal whenFrozen {
     _frozen = false;
@@ -689,7 +689,7 @@ contract Coin98 is Context, Ownable, Pausable, IERC20 {
    * @dev Disable the {transfer}, {mint} and {burn} functions of contract.
    *
    * Can only be called by the current owner.
-   * The contract must not be paused.
+   * The contract must not be frozen.
    */
   function freeze() public onlyOwner {
     _freeze();
@@ -699,7 +699,7 @@ contract Coin98 is Context, Ownable, Pausable, IERC20 {
    * @dev Enable the {transfer}, {mint} and {burn} functions of contract.
    *
    * Can only be called by the current owner.
-   * The contract must be paused.
+   * The contract must be frozen.
    */
   function unfreeze() public onlyOwner {
     _unfreeze();
@@ -808,7 +808,7 @@ contract Coin98 is Context, Ownable, Pausable, IERC20 {
    * To learn more about hooks, head to xref:ROOT:extending-contracts.adoc#using-hooks[Using Hooks].
    */
   function _beforeTokenTransfer(address from, address to, uint256 amount) internal {
-    require(!frozen(), "ERC20Pausable: token transfer while paused");
+    require(!frozen(), "ERC20: token transfer while frozen");
   }
 
   function _afterTokenTransfer(
