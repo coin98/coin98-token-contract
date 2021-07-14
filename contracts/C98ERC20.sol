@@ -406,7 +406,7 @@ abstract contract Pausable is Context, Ownable {
   /**
    * @dev Returns true if the contract is paused, and false otherwise.
    */
-  function paused() public view returns (bool) {
+  function frozen() public view returns (bool) {
     return _paused;
   }
 
@@ -418,7 +418,7 @@ abstract contract Pausable is Context, Ownable {
    * - The contract must not be paused.
    */
   modifier whenNotPaused() {
-    require(!paused(), "Pausable: paused");
+    require(!frozen(), "Pausable: paused");
     _;
   }
 
@@ -430,7 +430,7 @@ abstract contract Pausable is Context, Ownable {
    * - The contract must be paused.
    */
   modifier whenPaused() {
-    require(paused(), "Pausable: not paused");
+    require(frozen(), "Pausable: not paused");
     _;
   }
 
@@ -809,7 +809,7 @@ contract ERC20 is Context, Ownable, Pausable, IERC20 {
    * To learn more about hooks, head to xref:ROOT:extending-contracts.adoc#using-hooks[Using Hooks].
    */
   function _beforeTokenTransfer(address from, address to, uint256 amount) internal {
-    require(!paused(), "ERC20Pausable: token transfer while paused");
+    require(!frozen(), "ERC20Pausable: token transfer while paused");
   }
 
   function _afterTokenTransfer(
