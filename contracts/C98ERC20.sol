@@ -371,8 +371,6 @@ abstract contract Ownable is Context {
   function transferOwnership(address newOwner) public onlyOwner {
     require(newOwner != address(0), "Ownable: new owner is the zero address");
     _newOwner = newOwner;
-    emit OwnershipTransferred(_owner, newOwner);
-    _owner = newOwner;
   }
 }
 
