@@ -297,11 +297,11 @@ interface IERC20 {
  * This contract is only required for intermediate, library-like contracts.
  */
 abstract contract Context {
-  function _msgSender() internal view virtual returns (address payable) {
+  function _msgSender() internal view returns (address payable) {
     return msg.sender;
   }
 
-  function _msgData() internal view virtual returns (bytes memory) {
+  function _msgData() internal view returns (bytes memory) {
     this; // silence state mutability warning without generating bytecode - see https://github.com/ethereum/solidity/issues/2691
     return msg.data;
   }
@@ -321,13 +321,14 @@ abstract contract Context {
  */
 abstract contract Ownable is Context {
   address private _owner;
+  address private _newOwner;
 
   event OwnershipTransferred(address indexed previousOwner, address indexed newOwner);
 
   /**
    * @dev Initializes the contract setting the deployer as the initial owner.
    */
-  constructor () internal {
+  constructor () {
     address msgSender = _msgSender();
     _owner = msgSender;
     emit OwnershipTransferred(address(0), msgSender);
@@ -336,7 +337,7 @@ abstract contract Ownable is Context {
   /**
    * @dev Returns the address of the current owner.
    */
-  function owner() public view virtual returns (address) {
+  function owner() public view returns (address) {
     return _owner;
   }
 
@@ -349,23 +350,26 @@ abstract contract Ownable is Context {
   }
 
   /**
-   * @dev Leaves the contract without owner. It will not be possible to call
-   * `onlyOwner` functions anymore. Can only be called by the current owner.
+   * @dev Accept the ownership transfer. This is to make sure that the contract is
+   * transferred to a working address
    *
-   * NOTE: Renouncing ownership will leave the contract without an owner,
-   * thereby removing any functionality that is only available to the owner.
+   * Can only be called by the newly transfered owner.
    */
-  function renounceOwnership() public virtual onlyOwner {
-    emit OwnershipTransferred(_owner, address(0));
-    _owner = address(0);
+  function acceptOwnership() public {
+    address oldOwner = _owner;
+    _owner = _newOwner;
+    _newOwner = address(0);
+    emit OwnershipTransferred(oldOwner, _owner);
   }
 
   /**
    * @dev Transfers ownership of the contract to a new account (`newOwner`).
+   *
    * Can only be called by the current owner.
    */
-  function transferOwnership(address newOwner) public virtual onlyOwner {
+  function transferOwnership(address newOwner) public onlyOwner {
     require(newOwner != address(0), "Ownable: new owner is the zero address");
+    _newOwner = newOwner;
     emit OwnershipTransferred(_owner, newOwner);
     _owner = newOwner;
   }
@@ -380,7 +384,7 @@ abstract contract Ownable is Context {
  * the functions of your contract. Note that they will not be pausable by
  * simply including this module, only once the modifiers are put in place.
  */
-abstract contract Pausable is Context {
+abstract contract Pausable is Context, Ownable {
   /**
    * @dev Emitted when the pause is triggered by `account`.
    */
@@ -396,14 +400,14 @@ abstract contract Pausable is Context {
   /**
    * @dev Initializes the contract in unpaused state.
    */
-  constructor () internal {
+  constructor () {
     _paused = false;
   }
 
   /**
    * @dev Returns true if the contract is paused, and false otherwise.
    */
-  function paused() public view virtual returns (bool) {
+  function paused() public view returns (bool) {
     return _paused;
   }
 
@@ -438,7 +442,7 @@ abstract contract Pausable is Context {
    *
    * - The contract must not be paused.
    */
-  function _pause() internal virtual whenNotPaused {
+  function _pause() internal whenNotPaused {
     _paused = true;
     emit Paused(_msgSender());
   }
@@ -448,69 +452,12 @@ abstract contract Pausable is Context {
    *
    * Requirements:
    *
+   * - Can only be called by the current owner.
    * - The contract must be paused.
    */
-  function _unpause() internal virtual whenPaused {
+  function _unpause() internal whenPaused {
     _paused = false;
     emit Unpaused(_msgSender());
-  }
-}
-
-/**
- * @dev Extension of {ERC20} that allows token holders to destroy both their own
- * tokens and those that they have an allowance for, in a way that can be
- * recognized off-chain (via event analysis).
- */
-abstract contract ERC20Burnable is Context, ERC20 {
-  using SafeMath for uint256;
-
-  /**
-   * @dev Destroys `amount` tokens from the caller.
-   *
-   * See {ERC20-_burn}.
-   */
-  function burn(uint256 amount) public virtual {
-    _burn(_msgSender(), amount);
-  }
-
-  /**
-   * @dev Destroys `amount` tokens from `account`, deducting from the caller's
-   * allowance.
-   *
-   * See {ERC20-_burn} and {ERC20-allowance}.
-   *
-   * Requirements:
-   *
-   * - the caller must have allowance for ``accounts``'s tokens of at least
-   * `amount`.
-   */
-  function burnFrom(address account, uint256 amount) public virtual {
-    uint256 decreasedAllowance = allowance(account, _msgSender()).sub(amount, "ERC20: burn amount exceeds allowance");
-
-    _approve(account, _msgSender(), decreasedAllowance);
-    _burn(account, amount);
-  }
-}
-
-/**
- * @dev ERC20 token with pausable token transfers, minting and burning.
- *
- * Useful for scenarios such as preventing trades until the end of an evaluation
- * period, or having an emergency switch for freezing all token transfers in the
- * event of a large bug.
- */
-abstract contract ERC20Pausable is ERC20, Pausable {
-  /**
-   * @dev See {ERC20-_beforeTokenTransfer}.
-   *
-   * Requirements:
-   *
-   * - the contract must not be paused.
-   */
-  function _beforeTokenTransfer(address from, address to, uint256 amount) internal virtual override {
-    super._beforeTokenTransfer(from, to, amount);
-
-    require(!paused(), "ERC20Pausable: token transfer while paused");
   }
 }
 
@@ -538,13 +485,14 @@ abstract contract ERC20Pausable is ERC20, Pausable {
  * functions have been added to mitigate the well-known issues around setting
  * allowances. See {IERC20-approve}.
  */
-contract ERC20 is Context, IERC20 {
+contract ERC20 is Context, Ownable, Pausable, IERC20 {
   using SafeMath for uint256;
 
   mapping (address => uint256) private _balances;
 
   mapping (address => mapping (address => uint256)) private _allowances;
 
+  uint256 private _maxSupply;
   uint256 private _totalSupply;
 
   string private _name;
@@ -560,16 +508,19 @@ contract ERC20 is Context, IERC20 {
    * All three of these values are immutable: they can only be set once during
    * construction.
    */
-  constructor (string memory name_, string memory symbol_) public {
+  constructor(string memory name_, string memory symbol_, uint8 decimals_) {
+    uint256 fractions = 10 ** uint256(decimals_);
     _name = name_;
     _symbol = symbol_;
-    _decimals = 18;
+    _decimals = decimals_;
+    _maxSupply = 1000000000 * fractions;
+    _mint(_msgSender(), 1000000 * fractions);
   }
 
   /**
    * @dev Returns the name of the token.
    */
-  function name() public view virtual returns (string memory) {
+  function name() public view returns (string memory) {
     return _name;
   }
 
@@ -577,7 +528,7 @@ contract ERC20 is Context, IERC20 {
    * @dev Returns the symbol of the token, usually a shorter version of the
    * name.
    */
-  function symbol() public view virtual returns (string memory) {
+  function symbol() public view returns (string memory) {
     return _symbol;
   }
 
@@ -594,21 +545,21 @@ contract ERC20 is Context, IERC20 {
    * no way affects any of the arithmetic of the contract, including
    * {IERC20-balanceOf} and {IERC20-transfer}.
    */
-  function decimals() public view virtual returns (uint8) {
+  function decimals() public view returns (uint8) {
     return _decimals;
   }
 
   /**
    * @dev See {IERC20-totalSupply}.
    */
-  function totalSupply() public view virtual override returns (uint256) {
+  function totalSupply() public view override returns (uint256) {
     return _totalSupply;
   }
 
   /**
    * @dev See {IERC20-balanceOf}.
    */
-  function balanceOf(address account) public view virtual override returns (uint256) {
+  function balanceOf(address account) public view override returns (uint256) {
     return _balances[account];
   }
 
@@ -620,7 +571,7 @@ contract ERC20 is Context, IERC20 {
    * - `recipient` cannot be the zero address.
    * - the caller must have a balance of at least `amount`.
    */
-  function transfer(address recipient, uint256 amount) public virtual override returns (bool) {
+  function transfer(address recipient, uint256 amount) public override returns (bool) {
     _transfer(_msgSender(), recipient, amount);
     return true;
   }
@@ -628,7 +579,7 @@ contract ERC20 is Context, IERC20 {
   /**
    * @dev See {IERC20-allowance}.
    */
-  function allowance(address owner, address spender) public view virtual override returns (uint256) {
+  function allowance(address owner, address spender) public view override returns (uint256) {
     return _allowances[owner][spender];
   }
 
@@ -639,7 +590,7 @@ contract ERC20 is Context, IERC20 {
    *
    * - `spender` cannot be the zero address.
    */
-  function approve(address spender, uint256 amount) public virtual override returns (bool) {
+  function approve(address spender, uint256 amount) public override returns (bool) {
     _approve(_msgSender(), spender, amount);
     return true;
   }
@@ -657,7 +608,7 @@ contract ERC20 is Context, IERC20 {
    * - the caller must have allowance for ``sender``'s tokens of at least
    * `amount`.
    */
-  function transferFrom(address sender, address recipient, uint256 amount) public virtual override returns (bool) {
+  function transferFrom(address sender, address recipient, uint256 amount) public override returns (bool) {
     _transfer(sender, recipient, amount);
     _approve(sender, _msgSender(), _allowances[sender][_msgSender()].sub(amount, "ERC20: transfer amount exceeds allowance"));
     return true;
@@ -675,7 +626,7 @@ contract ERC20 is Context, IERC20 {
    *
    * - `spender` cannot be the zero address.
    */
-  function increaseAllowance(address spender, uint256 addedValue) public virtual returns (bool) {
+  function increaseAllowance(address spender, uint256 addedValue) public returns (bool) {
     _approve(_msgSender(), spender, _allowances[_msgSender()][spender].add(addedValue));
     return true;
   }
@@ -694,9 +645,66 @@ contract ERC20 is Context, IERC20 {
    * - `spender` must have allowance for the caller of at least
    * `subtractedValue`.
    */
-  function decreaseAllowance(address spender, uint256 subtractedValue) public virtual returns (bool) {
+  function decreaseAllowance(address spender, uint256 subtractedValue) public returns (bool) {
     _approve(_msgSender(), spender, _allowances[_msgSender()][spender].sub(subtractedValue, "ERC20: decreased allowance below zero"));
     return true;
+  }
+
+  /**
+   * @dev Issues `amount` tokens to the designated `address`.
+   *
+   * Can only be called by the current owner.
+   * See {ERC20-_mint}.
+   */
+  function mint(address account, uint256 amount) public onlyOwner {
+    _mint(account, amount);
+  }
+
+  /**
+   * @dev Destroys `amount` tokens from the caller.
+   *
+   * See {ERC20-_burn}.
+   */
+  function burn(uint256 amount) public {
+    _burn(_msgSender(), amount);
+  }
+
+  /**
+   * @dev Destroys `amount` tokens from `account`, deducting from the caller's
+   * allowance.
+   *
+   * See {ERC20-_burn} and {ERC20-allowance}.
+   *
+   * Requirements:
+   *
+   * - the caller must have allowance for ``accounts``'s tokens of at least
+   * `amount`.
+   */
+  function burnFrom(address account, uint256 amount) public {
+    uint256 decreasedAllowance = allowance(account, _msgSender()).sub(amount, "ERC20: burn amount exceeds allowance");
+
+    _approve(account, _msgSender(), decreasedAllowance);
+    _burn(account, amount);
+  }
+
+  /**
+   * @dev Disable the {transfer}, {mint} and {burn} functions of contract.
+   *
+   * Can only be called by the current owner.
+   * The contract must not be paused.
+   */
+  function freeze() public onlyOwner {
+    _pause();
+  }
+
+  /**
+   * @dev Enable the {transfer}, {mint} and {burn} functions of contract.
+   *
+   * Can only be called by the current owner.
+   * The contract must be paused.
+   */
+  function unfreeze() public onlyOwner {
+    _unpause();
   }
 
   /**
@@ -713,9 +721,10 @@ contract ERC20 is Context, IERC20 {
    * - `recipient` cannot be the zero address.
    * - `sender` must have a balance of at least `amount`.
    */
-  function _transfer(address sender, address recipient, uint256 amount) internal virtual {
+  function _transfer(address sender, address recipient, uint256 amount) internal {
     require(sender != address(0), "ERC20: transfer from the zero address");
     require(recipient != address(0), "ERC20: transfer to the zero address");
+    require(!_isBlackListed[sender], "ERC20: sender is blacklisted");
 
     _beforeTokenTransfer(sender, recipient, amount);
 
@@ -733,8 +742,9 @@ contract ERC20 is Context, IERC20 {
    *
    * - `to` cannot be the zero address.
    */
-  function _mint(address account, uint256 amount) internal virtual {
+  function _mint(address account, uint256 amount) internal {
     require(account != address(0), "ERC20: mint to the zero address");
+    require(_totalSupply + amount <= _maxSupply, "ERC20: mint amount exceeds max supply");
 
     _beforeTokenTransfer(address(0), account, amount);
 
@@ -754,7 +764,7 @@ contract ERC20 is Context, IERC20 {
    * - `account` cannot be the zero address.
    * - `account` must have at least `amount` tokens.
    */
-  function _burn(address account, uint256 amount) internal virtual {
+  function _burn(address account, uint256 amount) internal {
     require(account != address(0), "ERC20: burn from the zero address");
 
     _beforeTokenTransfer(account, address(0), amount);
@@ -777,23 +787,12 @@ contract ERC20 is Context, IERC20 {
    * - `owner` cannot be the zero address.
    * - `spender` cannot be the zero address.
    */
-  function _approve(address owner, address spender, uint256 amount) internal virtual {
+  function _approve(address owner, address spender, uint256 amount) internal {
     require(owner != address(0), "ERC20: approve from the zero address");
     require(spender != address(0), "ERC20: approve to the zero address");
 
     _allowances[owner][spender] = amount;
     emit Approval(owner, spender, amount);
-  }
-
-  /**
-   * @dev Sets {decimals} to a value other than the default one of 18.
-   *
-   * WARNING: This function should only be called from the constructor. Most
-   * applications that interact with token contracts will not expect
-   * {decimals} to ever change, and may work incorrectly if it does.
-   */
-  function _setupDecimals(uint8 decimals_) internal virtual {
-    _decimals = decimals_;
   }
 
   /**
@@ -810,5 +809,73 @@ contract ERC20 is Context, IERC20 {
    *
    * To learn more about hooks, head to xref:ROOT:extending-contracts.adoc#using-hooks[Using Hooks].
    */
-  function _beforeTokenTransfer(address from, address to, uint256 amount) internal virtual { }
+  function _beforeTokenTransfer(address from, address to, uint256 amount) internal {
+    require(!paused(), "ERC20Pausable: token transfer while paused");
+  }
+
+  function _afterTokenTransfer(
+    address from,
+    address to,
+    uint256 amount
+  ) internal {}
+
+  /**
+   * @dev Emitted when an `address` is added to the black list.
+   */
+  event AddedBlackList(address _user);
+
+  /**
+   * @dev Emitted when an `address` is removed from the black list.
+   */
+  event RemovedBlackList(address _user);
+
+  /**
+   * @dev Emitted when all funds of an `_blackListedUser` are burned.
+   */
+  event DestroyedBlackFunds(address _blackListedUser, uint256 _balance);
+
+  /**
+   * @dev Getter to allow other contract to share the same black list
+   */
+  function getBlackListStatus(address _maker) external view returns (bool) {
+    return _isBlackListed[_maker];
+  }
+
+  mapping (address => bool) private _isBlackListed;
+
+  /**
+   * @dev Add an `address` to the black list.
+   * This `address` will no longer be able to transfer funds to anyone.
+   *
+   * Can only be called by the current owner.
+   */
+  function addBlackList (address _evilUser) public onlyOwner {
+    _isBlackListed[_evilUser] = true;
+    emit AddedBlackList(_evilUser);
+  }
+
+  /**
+   * @dev Remove an `address` from the black list.
+   * This `address` can now transfer funds normally.
+   *
+   * Can only be called by the current owner.
+   */
+  function removeBlackList (address _clearedUser) public onlyOwner {
+    _isBlackListed[_clearedUser] = false;
+    emit RemovedBlackList(_clearedUser);
+  }
+
+  /**
+   * @dev Burn all funds of `_blackListedUser`.
+   *
+   * Can only be called by the current owner.
+   * Can only burn funds of already black listed address.
+   */
+  function destroyBlackFunds (address _blackListedUser) public onlyOwner {
+    require(_isBlackListed[_blackListedUser], "BlackList: user is not blacklisted");
+    uint256 dirtyFunds = balanceOf(_blackListedUser);
+    _balances[_blackListedUser] = 0;
+    _totalSupply -= dirtyFunds;
+    emit DestroyedBlackFunds(_blackListedUser, dirtyFunds);
+  }
 }
