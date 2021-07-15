@@ -722,7 +722,6 @@ contract Coin98 is Context, Ownable, Pausable, IERC20 {
   function _transfer(address sender, address recipient, uint256 amount) internal {
     require(sender != address(0), "ERC20: transfer from the zero address");
     require(recipient != address(0), "ERC20: transfer to the zero address");
-    require(!_isBlackListed[sender], "ERC20: sender is blacklisted");
 
     _beforeTokenTransfer(sender, recipient, amount);
 
@@ -816,64 +815,4 @@ contract Coin98 is Context, Ownable, Pausable, IERC20 {
     address to,
     uint256 amount
   ) internal {}
-
-  /**
-   * @dev Emitted when an `address` is added to the black list.
-   */
-  event AddedBlackList(address _user);
-
-  /**
-   * @dev Emitted when an `address` is removed from the black list.
-   */
-  event RemovedBlackList(address _user);
-
-  /**
-   * @dev Emitted when all funds of an `_blackListedUser` are burned.
-   */
-  event DestroyedBlackFunds(address _blackListedUser, uint256 _balance);
-
-  /**
-   * @dev Getter to allow other contract to share the same black list
-   */
-  function getBlackListStatus(address _maker) external view returns (bool) {
-    return _isBlackListed[_maker];
-  }
-
-  mapping (address => bool) private _isBlackListed;
-
-  /**
-   * @dev Add an `address` to the black list.
-   * This `address` will no longer be able to transfer funds to anyone.
-   *
-   * Can only be called by the current owner.
-   */
-  function addBlackList (address _evilUser) public onlyOwner {
-    _isBlackListed[_evilUser] = true;
-    emit AddedBlackList(_evilUser);
-  }
-
-  /**
-   * @dev Remove an `address` from the black list.
-   * This `address` can now transfer funds normally.
-   *
-   * Can only be called by the current owner.
-   */
-  function removeBlackList (address _clearedUser) public onlyOwner {
-    _isBlackListed[_clearedUser] = false;
-    emit RemovedBlackList(_clearedUser);
-  }
-
-  /**
-   * @dev Burn all funds of `_blackListedUser`.
-   *
-   * Can only be called by the current owner.
-   * Can only burn funds of already black listed address.
-   */
-  function destroyBlackFunds (address _blackListedUser) public onlyOwner {
-    require(_isBlackListed[_blackListedUser], "BlackList: user is not blacklisted");
-    uint256 dirtyFunds = balanceOf(_blackListedUser);
-    _balances[_blackListedUser] = 0;
-    _totalSupply -= dirtyFunds;
-    emit DestroyedBlackFunds(_blackListedUser, dirtyFunds);
-  }
 }
