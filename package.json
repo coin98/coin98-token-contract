@@ -16,8 +16,8 @@
   },
   "homepage": "https://github.com/coin98/coin98-token-contract#readme",
   "dependencies": {
-    "@openzeppelin/contracts": "^4.8.1",
-    "@openzeppelin/contracts-upgradeable": "^4.8.1"
+    "@openzeppelin/contracts": "^3.4.1",
+    "@openzeppelin/contracts-upgradeable": "^3.4.1"
   },
   "devDependencies": {
     "@coin98/solidity-support-library": "^0.3.0",
