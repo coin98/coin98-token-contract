@@ -1,0 +1,33 @@
+# Coin98 EditorConfig v1.0.0
+# To learn more about .editorconfig see https://aka.ms/editorconfigdocs
+
+# top-most EditorConfig file
+root = true
+
+## ALL FILES
+[*]
+charset = utf-8
+end_of_line = lf
+indent_style = space
+insert_final_newline = true
+trim_trailing_whitespace = true
+
+## CONFIGURATION
+[*.{json,toml,xml}]
+indent_size = 2
+tab_width = 2
+
+## EVM SOURCE CODE
+[*.{sol}]
+indent_size = 2
+tab_width = 2
+
+## RUST SOURCE CODE
+[*.{rs}]
+indent_size = 2
+tab_width = 2
+
+## SERVER SIDE SOURCE CODE
+[*.{css,js,ts}]
+indent_size = 2
+tab_width = 2
