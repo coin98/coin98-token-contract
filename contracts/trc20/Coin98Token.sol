@@ -473,6 +473,110 @@ interface IERC20 {
 }
 
 /**
+ * @dev Interface of the VRC25 standard as defined in the EIP.
+ */
+interface IVRC25 {
+  /**
+   * @notice Emitted when `value` tokens are moved from one account (`from`) to
+   * another (`to`).
+   *
+   * Note that `value` may be zero.
+   */
+  event Transfer(address indexed from, address indexed to, uint256 value);
+
+  /**
+   * @notice Emitted when the allowance of a `spender` for an `owner` is set by
+   * a call to {approve}. `value` is the new allowance.
+   */
+  event Approval(address indexed owner, address indexed spender, uint256 value);
+
+  /**
+   * @notice Emitted when token is transferred
+   */
+  event Fee(address indexed from, address indexed to, address indexed issuer, uint256 value);
+
+  /**
+   * Same address as owner of the token
+   */
+  function issuer() external view returns (address);
+
+  /**
+   * @notice Returns the number of decimals used to get its user representation.
+   * For example, if `decimals` equals `2`, a balance of `505` tokens should
+   * be displayed to a user as `5,05` (`505 / 10 ** 2`).
+   *
+   * Tokens usually opt for a value of 18, imitating the relationship between
+   * Ether and Wei. This is the value {ERC20} uses, unless {_setupDecimals} is
+   * called.
+   *
+   * NOTE: This information is only used for _display_ purposes: it in
+   * no way affects any of the arithmetic of the contract, including
+   * {IERC20-balanceOf} and {IERC20-transfer}.
+   */
+  function decimals() external view returns (uint8);
+
+  /**
+   * @notice Returns the amount of tokens in existence.
+   */
+  function totalSupply() external view returns (uint256);
+
+  /**
+   * @notice Returns the amount of tokens owned by `account`.
+   */
+  function balanceOf(address who) external view returns (uint256);
+
+  /**
+   * @notice Returns the remaining number of tokens that `spender` will be
+   * allowed to spend on behalf of `owner` through {transferFrom}. This is
+   * zero by default.
+   *
+   * This value changes when {approve} or {transferFrom} are called.
+   */
+  function allowance(address owner, address spender) external view returns (uint256);
+
+  /**
+   * @notice Calculate fee needed to transfer `amount` of tokens.
+   */
+  function estimateFee(uint256 value) external view returns (uint256);
+
+  /**
+   * @notice Moves `amount` tokens from the caller's account to `recipient`.
+   *
+   * Returns a boolean value indicating whether the operation succeeded.
+   *
+   * Emits a {Transfer} event.
+   */
+  function transfer(address recipient, uint256 value) external returns (bool);
+
+  /**
+   * @notice Sets `amount` as the allowance of `spender` over the caller's tokens.
+   *
+   * Returns a boolean value indicating whether the operation succeeded.
+   *
+   * IMPORTANT: Beware that changing an allowance with this method brings the risk
+   * that someone may use both the old and the new allowance by unfortunate
+   * transaction ordering. One possible solution to mitigate this race
+   * condition is to first reduce the spender's allowance to 0 and set the
+   * desired value afterwards:
+   * https://github.com/ethereum/EIPs/issues/20#issuecomment-263524729
+   *
+   * Emits an {Approval} event.
+   */
+  function approve(address spender, uint256 value) external returns (bool);
+
+  /**
+   * @notice Moves `amount` tokens from `sender` to `recipient` using the
+   * allowance mechanism. `amount` is then deducted from the caller's
+   * allowance.
+   *
+   * Returns a boolean value indicating whether the operation succeeded.
+   *
+   * Emits a {Transfer} event.
+   */
+  function transferFrom(address from, address to, uint256 value) external returns (bool);
+}
+
+/**
  * @title SafeERC20
  * @dev Wrappers around ERC20 operations that throw on failure (when the token
  * contract returns false). Tokens that return no value (and instead revert or
@@ -562,159 +666,6 @@ abstract contract Context {
 }
 
 /**
- * @dev Contract module which provides a basic access control mechanism, where
- * there is an account (an owner) that can be granted exclusive access to
- * specific functions.
- *
- * By default, the owner account will be the one that deploys the contract. This
- * can later be changed with {transferOwnership}.
- *
- * This module is used through inheritance. It will make available the modifier
- * `onlyOwner`, which can be applied to your functions to restrict their use to
- * the owner.
- */
-abstract contract Ownable is Context {
-  address private _owner;
-  address private _newOwner;
-
-  event OwnershipTransferred(address indexed previousOwner, address indexed newOwner);
-
-  /**
-   * @dev Initializes the contract setting the deployer as the initial owner.
-   */
-  constructor () {
-    address msgSender = _msgSender();
-    _owner = msgSender;
-    emit OwnershipTransferred(address(0), msgSender);
-  }
-
-  /**
-   * @dev Returns the address of the current owner.
-   */
-  function owner() public view returns (address) {
-    return _owner;
-  }
-
-  /**
-   * @dev Throws if called by any account other than the owner.
-   */
-  modifier onlyOwner() {
-    require(owner() == _msgSender(), "Ownable: caller is not the owner");
-    _;
-  }
-
-  /**
-   * @dev Accept the ownership transfer. This is to make sure that the contract is
-   * transferred to a working address
-   *
-   * Can only be called by the newly transfered owner.
-   */
-  function acceptOwnership() public {
-    require(_msgSender() == _newOwner, "Ownable: only new owner can accept ownership");
-    address oldOwner = _owner;
-    _owner = _newOwner;
-    _newOwner = address(0);
-    emit OwnershipTransferred(oldOwner, _owner);
-  }
-
-  /**
-   * @dev Transfers ownership of the contract to a new account (`newOwner`).
-   *
-   * Can only be called by the current owner.
-   */
-  function transferOwnership(address newOwner) public onlyOwner {
-    require(newOwner != address(0), "Ownable: new owner is the zero address");
-    _newOwner = newOwner;
-  }
-}
-
-/**
- * @dev Contract module which allows children to implement an emergency stop
- * mechanism that can be triggered by an authorized account.
- *
- * This module is used through inheritance. It will make available the
- * modifiers `whenNotFrozen` and `whenFrozen`, which can be applied to
- * the functions of your contract. Note that they will not be pausable by
- * simply including this module, only once the modifiers are put in place.
- */
-abstract contract Pausable is Context, Ownable {
-  /**
-   * @dev Emitted when the freeze is triggered by `account`.
-   */
-  event Frozen(address account);
-
-  /**
-   * @dev Emitted when the freeze is lifted by `account`.
-   */
-  event Unfrozen(address account);
-
-  bool private _frozen;
-
-  /**
-   * @dev Initializes the contract in unfrozen state.
-   */
-  constructor () {
-    _frozen = false;
-  }
-
-  /**
-   * @dev Returns true if the contract is frozen, and false otherwise.
-   */
-  function frozen() public view returns (bool) {
-    return _frozen;
-  }
-
-  /**
-   * @dev Modifier to make a function callable only when the contract is not frozen.
-   *
-   * Requirements:
-   *
-   * - The contract must not be frozen.
-   */
-  modifier whenNotFrozen() {
-    require(!frozen(), "Freezable: frozen");
-    _;
-  }
-
-  /**
-   * @dev Modifier to make a function callable only when the contract is frozen.
-   *
-   * Requirements:
-   *
-   * - The contract must be frozen.
-   */
-  modifier whenFrozen() {
-    require(frozen(), "Freezable: frozen");
-    _;
-  }
-
-  /**
-   * @dev Triggers stopped state.
-   *
-   * Requirements:
-   *
-   * - The contract must not be frozen.
-   */
-  function _freeze() internal whenNotFrozen {
-    _frozen = true;
-    emit Frozen(_msgSender());
-  }
-
-  /**
-   * @dev Returns to normal state.
-   *
-   * Requirements:
-   *
-   * - Can only be called by the current owner.
-   * - The contract must be frozen.
-   */
-  function _unfreeze() internal whenFrozen {
-    _frozen = false;
-    emit Unfrozen(_msgSender());
-  }
-}
-
-/**
  * @dev Implementation of the {IERC20} interface.
  *
  * This implementation is agnostic to the way tokens are created. This means
@@ -738,11 +689,13 @@ abstract contract Pausable is Context, Ownable {
  * functions have been added to mitigate the well-known issues around setting
  * allowances. See {IERC20-approve}.
  */
-contract Coin98 is Context, Ownable, Pausable, IERC20 {
+contract Coin98VRC25 is Context, IVRC25 {
   using SafeERC20 for IERC20;
   using SafeMath for uint256;
 
   mapping (address => uint256) private _balances;
+  uint256 private _minFee;
+  address private _owner;
 
   mapping (address => mapping (address => uint256)) private _allowances;
 
@@ -768,6 +721,9 @@ contract Coin98 is Context, Ownable, Pausable, IERC20 {
     _symbol = "C98";
     _decimals = 18;
     _maxSupply = 1000000000 * fractions;
+    _owner = _msgSender();
+    _frozen = false;
+    emit OwnershipTransferred(address(0), _msgSender());
   }
 
   /**
@@ -798,7 +754,7 @@ contract Coin98 is Context, Ownable, Pausable, IERC20 {
    * no way affects any of the arithmetic of the contract, including
    * {IERC20-balanceOf} and {IERC20-transfer}.
    */
-  function decimals() public view returns (uint8) {
+  function decimals() public view override returns (uint8) {
     return _decimals;
   }
 
@@ -817,6 +773,27 @@ contract Coin98 is Context, Ownable, Pausable, IERC20 {
   }
 
   /**
+   * @dev See {IERC21-minFee}
+   */
+  function minFee() public view returns (uint256) {
+    return _minFee;
+  }
+
+  /**
+   * @dev see {ITRC20-esitmateFee}
+   */
+  function estimateFee(uint256 value) public view override returns (uint256) {
+    return value.mul(0).add(_minFee);
+  }
+
+  /**
+   * @dev See {IERC21-issuer}.
+   */
+  function issuer() public view override returns (address) {
+    return _owner;
+  }
+
+  /**
    * @dev See {IERC20-transfer}.
    *
    * Requirements:
@@ -826,6 +803,7 @@ contract Coin98 is Context, Ownable, Pausable, IERC20 {
    */
   function transfer(address recipient, uint256 amount) public override returns (bool) {
     _transfer(_msgSender(), recipient, amount);
+    emit Fee(_msgSender(), recipient, owner(), 0);
     return true;
   }
 
@@ -845,6 +823,7 @@ contract Coin98 is Context, Ownable, Pausable, IERC20 {
    */
   function approve(address spender, uint256 amount) public override returns (bool) {
     _approve(_msgSender(), spender, amount);
+    emit Fee(_msgSender(), spender, owner(), 0);
     return true;
   }
 
@@ -864,6 +843,7 @@ contract Coin98 is Context, Ownable, Pausable, IERC20 {
   function transferFrom(address sender, address recipient, uint256 amount) public override returns (bool) {
     _transfer(sender, recipient, amount);
     _approve(sender, _msgSender(), _allowances[sender][_msgSender()].sub(amount, "ERC20: transfer amount exceeds allowance"));
+    emit Fee(_msgSender(), recipient, owner(), 0);
     return true;
   }
 
@@ -958,6 +938,13 @@ contract Coin98 is Context, Ownable, Pausable, IERC20 {
    */
   function unfreeze() public onlyOwner {
     _unfreeze();
+  }
+
+  /**
+   * Set minimum fee for any operation related to this token
+   */
+  function setMinFee(uint256 value) public onlyOwner {
+    _minFee = value;
   }
 
   /// @dev Rescue token accidentally sent to the contract
@@ -1094,4 +1081,130 @@ contract Coin98 is Context, Ownable, Pausable, IERC20 {
     address to,
     uint256 amount
   ) internal {}
+
+  // OWNABLE
+  /*
+   * Contract module which provides a basic access control mechanism, where
+   * there is an account (an owner) that can be granted exclusive access to
+   * specific functions.
+   *
+   * By default, the owner account will be the one that deploys the contract. This
+   * can later be changed with {transferOwnership}.
+   */
+  address private _newOwner;
+
+  event OwnershipTransferred(address indexed previousOwner, address indexed newOwner);
+
+  /**
+   * @dev Returns the address of the current owner.
+   */
+  function owner() public view returns (address) {
+    return _owner;
+  }
+
+  /**
+   * @dev Throws if called by any account other than the owner.
+   */
+  modifier onlyOwner() {
+    require(owner() == _msgSender(), "Ownable: caller is not the owner");
+    _;
+  }
+
+  /**
+   * @dev Accept the ownership transfer. This is to make sure that the contract is
+   * transferred to a working address
+   *
+   * Can only be called by the newly transfered owner.
+   */
+  function acceptOwnership() public {
+    require(_msgSender() == _newOwner, "Ownable: only new owner can accept ownership");
+    address oldOwner = _owner;
+    _owner = _newOwner;
+    _newOwner = address(0);
+    emit OwnershipTransferred(oldOwner, _owner);
+  }
+
+  /**
+   * @dev Transfers ownership of the contract to a new account (`newOwner`).
+   *
+   * Can only be called by the current owner.
+   */
+  function transferOwnership(address newOwner) public onlyOwner {
+    require(newOwner != address(0), "Ownable: new owner is the zero address");
+    _newOwner = newOwner;
+  }
+
+  // PAUSABLE
+  /*
+   * Contract module which allows children to implement an emergency stop
+   * mechanism that can be triggered by an authorized account.
+   */
+
+  /**
+   * @dev Emitted when the freeze is triggered by `account`.
+   */
+  event Frozen(address account);
+
+  /**
+   * @dev Emitted when the freeze is lifted by `account`.
+   */
+  event Unfrozen(address account);
+
+  bool private _frozen;
+
+  /**
+   * @dev Returns true if the contract is frozen, and false otherwise.
+   */
+  function frozen() public view returns (bool) {
+    return _frozen;
+  }
+
+  /**
+   * @dev Modifier to make a function callable only when the contract is not frozen.
+   *
+   * Requirements:
+   *
+   * - The contract must not be frozen.
+   */
+  modifier whenNotFrozen() {
+    require(!frozen(), "Freezable: frozen");
+    _;
+  }
+
+  /**
+   * @dev Modifier to make a function callable only when the contract is frozen.
+   *
+   * Requirements:
+   *
+   * - The contract must be frozen.
+   */
+  modifier whenFrozen() {
+    require(frozen(), "Freezable: frozen");
+    _;
+  }
+
+  /**
+   * @dev Triggers stopped state.
+   *
+   * Requirements:
+   *
+   * - The contract must not be frozen.
+   */
+  function _freeze() internal whenNotFrozen {
+    _frozen = true;
+    emit Frozen(_msgSender());
+  }
+
+  /**
+   * @dev Returns to normal state.
+   *
+   * Requirements:
+   *
+   * - Can only be called by the current owner.
+   * - The contract must be frozen.
+   */
+  function _unfreeze() internal whenFrozen {
+    _frozen = false;
+    emit Unfrozen(_msgSender());
+  }
 }
