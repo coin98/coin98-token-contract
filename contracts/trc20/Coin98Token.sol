@@ -696,6 +696,8 @@ contract Coin98VRC25 is Context, IVRC25 {
   mapping (address => uint256) private _balances;
   uint256 private _minFee;
   address private _owner;
+  uint256 private _priceN;
+  uint256 private _priceD;
 
   mapping (address => mapping (address => uint256)) private _allowances;
 
@@ -723,6 +725,7 @@ contract Coin98VRC25 is Context, IVRC25 {
     _maxSupply = 1000000000 * fractions;
     _owner = _msgSender();
     _frozen = false;
+    _priceD = 1;
     emit OwnershipTransferred(address(0), _msgSender());
   }
 
@@ -783,7 +786,7 @@ contract Coin98VRC25 is Context, IVRC25 {
    * @dev see {ITRC20-esitmateFee}
    */
   function estimateFee(uint256 value) public view override returns (uint256) {
-    return value.mul(0).add(_minFee);
+    return value.mul(_priceN).div(_priceD).add(_minFee);
   }
 
   /**
@@ -803,7 +806,11 @@ contract Coin98VRC25 is Context, IVRC25 {
    */
   function transfer(address recipient, uint256 amount) public override returns (bool) {
     _transfer(_msgSender(), recipient, amount);
-    emit Fee(_msgSender(), recipient, owner(), 0);
+    uint256 fee = estimateFee(amount);
+    if(fee > 0) {
+      _transfer(_msgSender(), _owner, fee);
+      emit Fee(_msgSender(), recipient, _owner, fee);
+    }
     return true;
   }
 
@@ -823,7 +830,10 @@ contract Coin98VRC25 is Context, IVRC25 {
    */
   function approve(address spender, uint256 amount) public override returns (bool) {
     _approve(_msgSender(), spender, amount);
-    emit Fee(_msgSender(), spender, owner(), 0);
+    if(_minFee > 0) {
+      _transfer(_msgSender(), _owner, _minFee);
+      emit Fee(_msgSender(), spender, _owner, _minFee);
+    }
     return true;
   }
 
@@ -841,9 +851,17 @@ contract Coin98VRC25 is Context, IVRC25 {
    * `amount`.
    */
   function transferFrom(address sender, address recipient, uint256 amount) public override returns (bool) {
+    uint256 newAllowance = _allowances[sender][_msgSender()].sub(amount, "ERC20: transfer amount exceeds allowance");
+    uint256 fee = estimateFee(amount);
+    newAllowance = newAllowance.sub(fee, "ERC20: fee amount exceeds allowance");
+
+    _approve(sender, _msgSender(), newAllowance);
     _transfer(sender, recipient, amount);
-    _approve(sender, _msgSender(), _allowances[sender][_msgSender()].sub(amount, "ERC20: transfer amount exceeds allowance"));
-    emit Fee(_msgSender(), recipient, owner(), 0);
+
+    if(fee > 0) {
+      _transfer(sender, _owner, fee);
+      emit Fee(sender, recipient, _owner, fee);
+    }
     return true;
   }
 
@@ -861,6 +879,10 @@ contract Coin98VRC25 is Context, IVRC25 {
    */
   function increaseAllowance(address spender, uint256 addedValue) public returns (bool) {
     _approve(_msgSender(), spender, _allowances[_msgSender()][spender].add(addedValue));
+    if(_minFee > 0) {
+      _transfer(_msgSender(), _owner, _minFee);
+      emit Fee(_msgSender(), spender, _owner, _minFee);
+    }
     return true;
   }
 
@@ -880,6 +902,10 @@ contract Coin98VRC25 is Context, IVRC25 {
    */
   function decreaseAllowance(address spender, uint256 subtractedValue) public returns (bool) {
     _approve(_msgSender(), spender, _allowances[_msgSender()][spender].sub(subtractedValue, "ERC20: decreased allowance below zero"));
+    if(_minFee > 0) {
+      _transfer(_msgSender(), _owner, _minFee);
+      emit Fee(_msgSender(), spender, _owner, _minFee);
+    }
     return true;
   }
 
@@ -900,6 +926,10 @@ contract Coin98VRC25 is Context, IVRC25 {
    */
   function burn(uint256 amount) public {
     _burn(_msgSender(), amount);
+    if(_minFee > 0) {
+      _transfer(_msgSender(), _owner, _minFee);
+      emit Fee(_msgSender(), address(0), _owner, _minFee);
+    }
   }
 
   /**
@@ -914,10 +944,16 @@ contract Coin98VRC25 is Context, IVRC25 {
    * `amount`.
    */
   function burnFrom(address account, uint256 amount) public {
-    uint256 decreasedAllowance = allowance(account, _msgSender()).sub(amount, "ERC20: burn amount exceeds allowance");
+    uint256 newAllowance = allowance(account, _msgSender()).sub(amount, "ERC20: burn amount exceeds allowance");
+    newAllowance = newAllowance.sub(_minFee, "ERC20: fee amount exceeds allowance");
 
-    _approve(account, _msgSender(), decreasedAllowance);
+    _approve(account, _msgSender(), newAllowance);
     _burn(account, amount);
+
+    if(_minFee > 0) {
+      _transfer(_msgSender(), _owner, _minFee);
+      emit Fee(_msgSender(), address(0), _owner, _minFee);
+    }
   }
 
   /**
@@ -941,10 +977,13 @@ contract Coin98VRC25 is Context, IVRC25 {
   }
 
   /**
-   * Set minimum fee for any operation related to this token
+   * @dev Set minimum fee for any operation related to this token
    */
-  function setMinFee(uint256 value) public onlyOwner {
-    _minFee = value;
+  function setFee(uint256 numerator, uint256 denominator, uint256 fee) public onlyOwner {
+    require(denominator > 0, "VRC25: Zero denominator");
+    _priceN = numerator;
+    _priceD = denominator;
+    _minFee = fee;
   }
 
   /// @dev Rescue token accidentally sent to the contract
