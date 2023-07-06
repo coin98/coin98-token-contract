@@ -30,6 +30,11 @@ describe("Coin98VRC25 token", async function() {
     await c98Token.mint(senderAddress, ethers.utils.parseEther("1000"));
   });
 
+  it("cannot set fee without ownership", async function() {
+    await expect(c98Token.connect(recipient).setFee(priceN, priceD, minFee))
+    .to.be.rejectedWith("Ownable: caller is not the owner");
+  });
+
   it("check ownership", async function() {
     expect(await c98Token.owner()).to.equal(ownerAddress);
   });
@@ -41,12 +46,22 @@ describe("Coin98VRC25 token", async function() {
     expect(await c98Token.owner()).to.equal(recipientAddress);
   });
 
+  it("cannot transfer ownership without ownership", async function() {
+    await expect(c98Token.connect(recipient).transferOwnership(recipientAddress))
+    .to.be.rejectedWith("Ownable: caller is not the owner");
+  });
+
   it("should mint tokens", async function() {
     const amount = ethers.utils.parseEther("1000");
     const balanceBefore = await c98Token.balanceOf(recipientAddress);
     await c98Token.connect(owner).mint(recipientAddress, amount);
     const balanceAfter = await c98Token.balanceOf(recipientAddress);
     expect(balanceAfter).to.equal(balanceBefore.add(amount));
+  });
+
+  it("cannot mint without ownership", async function() {
+    await expect(c98Token.connect(recipient).mint(ownerAddress, ethers.utils.parseEther("1")))
+    .to.be.rejectedWith("Ownable: caller is not the owner");  
   });
 
   it("cannot mint exceeds max supply", async function() {
@@ -63,6 +78,15 @@ describe("Coin98VRC25 token", async function() {
     expect(balanceAfter).to.equal(balanceBefore.sub(amount.add(minFee)));
   });
 
+  it("should burn tokens without fee", async function() {
+    const amount = ethers.utils.parseEther("100");
+    await c98Token.setFee(0, priceD, 0);
+    const balanceBefore = await c98Token.balanceOf(senderAddress);
+    await c98Token.connect(sender).burn(amount);
+    const balanceAfter = await c98Token.balanceOf(senderAddress);
+    expect(balanceAfter).to.equal(balanceBefore.sub(amount));
+  });
+
   it("cannot burn exceeds balance", async function() {
     const amount = ethers.utils.parseEther("1001");
     await expect(c98Token.connect(owner).burn(amount))
@@ -70,6 +94,16 @@ describe("Coin98VRC25 token", async function() {
   });
 
   it("should burnFrom tokens", async function() {
+    const amount = ethers.utils.parseEther("100");
+    await c98Token.setFee(0, priceD, 0);
+    const balanceBefore = await c98Token.balanceOf(senderAddress);
+    await c98Token.connect(sender).approve(recipientAddress, amount);
+    await c98Token.connect(recipient).burnFrom(senderAddress, amount);
+    const balanceAfter = await c98Token.balanceOf(senderAddress);
+    expect(balanceAfter).to.equal(balanceBefore.sub(amount));
+  });
+
+  it("should burnFrom tokens without fee", async function() {
     const amount = ethers.utils.parseEther("100");
     const balanceBefore = await c98Token.balanceOf(senderAddress);
     await c98Token.connect(sender).approve(recipientAddress, amount.add(minFee));
@@ -101,6 +135,20 @@ describe("Coin98VRC25 token", async function() {
     expect(await c98Token.balanceOf(recipientAddress)).to.equal(initialRecipientBalance.add(transferAmount));
   });
 
+  it("should transfer tokens without fee", async function() {
+    const initialSenderBalance = ethers.utils.parseEther("1000");
+    const transferAmount = ethers.utils.parseEther("500");
+    const initialRecipientBalance = ethers.BigNumber.from(0);
+    await c98Token.setFee(0, priceD, 0);
+    const ownerBalance = await c98Token.balanceOf(senderAddress);
+    const recipientBalance = await c98Token.balanceOf(recipientAddress);
+    expect(ownerBalance).to.equal(initialSenderBalance);
+    expect(recipientBalance).to.equal(initialRecipientBalance);
+    await c98Token.connect(sender).transfer(recipientAddress, transferAmount);
+    expect(await c98Token.balanceOf(senderAddress)).to.equal(initialSenderBalance.sub(transferAmount));
+    expect(await c98Token.balanceOf(recipientAddress)).to.equal(initialRecipientBalance.add(transferAmount));
+  });
+
   it("cannot transfer exceeds balance", async function() {
     const amount = ethers.utils.parseEther("1001");
     await expect(c98Token.connect(sender).transfer(recipientAddress, amount))
@@ -112,6 +160,16 @@ describe("Coin98VRC25 token", async function() {
     const transferAmount = ethers.utils.parseEther("500");
     await expect(c98Token.connect(sender).transfer(recipientAddress, transferAmount))
     .to.be.rejectedWith("ERC20: transfer to the zero address");
+  });
+
+  it("cannot freeze token without ownership", async function() {
+    await expect(c98Token.connect(recipient).freeze())
+    .to.be.rejectedWith("Ownable: caller is not the owner");
+  });
+
+  it("cannot unfreeze token without ownership", async function() {
+    await expect(c98Token.connect(recipient).unfreeze())
+    .to.be.rejectedWith("Ownable: caller is not the owner");
   });
 
   it("cannot transfer tokens while the token is frozen", async function() {
@@ -131,6 +189,16 @@ describe("Coin98VRC25 token", async function() {
     await anotherC98Token.connect(owner).transfer(c98Token.address, initialBalance);
     await c98Token.connect(owner).withdraw(anotherC98Token.address, recipientAddress, initialBalance);
     expect(await anotherC98Token.balanceOf(recipientAddress)).to.equal(initialBalance);
+  });
+
+  it("cannot rescue accidentally sent token without ownership", async function() {
+    const tokenFactory = await ethers.getContractFactory("Coin98");
+    const anotherC98Token = await tokenFactory.connect(owner).deploy();
+    const initialBalance = ethers.utils.parseEther("1000");
+    await anotherC98Token.connect(owner).mint(ownerAddress, initialBalance);
+    await anotherC98Token.connect(owner).transfer(c98Token.address, initialBalance);
+    await expect(c98Token.connect(recipient).withdraw(anotherC98Token.address, recipientAddress, initialBalance))
+    .to.be.rejectedWith("Ownable: caller is not the owner");
   });
 
   it("should approve tokens", async function() {
@@ -180,6 +248,16 @@ describe("Coin98VRC25 token", async function() {
     const amount = ethers.utils.parseEther("100");
     const fee = calculateFee(amount, priceN, priceD, minFee);
     await c98Token.connect(sender).approve(recipientAddress, amount.add(fee));
+    await c98Token.connect(recipient).transferFrom(senderAddress, recipientAddress, amount);
+    const balanceAfter = await c98Token.balanceOf(recipientAddress);
+    expect(balanceAfter).to.equal(balanceBefore.add(amount));
+  });
+
+  it("should transferFrom successful without fee", async function() {
+    const balanceBefore = await c98Token.balanceOf(recipientAddress);
+    const amount = ethers.utils.parseEther("100");
+    await c98Token.setFee(0, priceD, 0);
+    await c98Token.connect(sender).approve(recipientAddress, amount);
     await c98Token.connect(recipient).transferFrom(senderAddress, recipientAddress, amount);
     const balanceAfter = await c98Token.balanceOf(recipientAddress);
     expect(balanceAfter).to.equal(balanceBefore.add(amount));

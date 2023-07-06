@@ -22,6 +22,11 @@ describe("Coin98 token", async function() {
     await c98Token.mint(ownerAddress, ethers.utils.parseEther("1000"));
   });
 
+  it("cannot transfer ownership without ownership", async function() {
+    await expect(c98Token.connect(recipient).transferOwnership(recipientAddress))
+    .to.be.rejectedWith("Ownable: caller is not the owner");
+  });
+
   it("check ownership", async function() {
     expect(await c98Token.owner()).to.equal(ownerAddress);
   });
@@ -41,6 +46,12 @@ describe("Coin98 token", async function() {
     expect(balanceAfter).to.equal(balanceBefore.add(amount));
   });
 
+
+  it("cannot mint without ownership", async function() {
+    await expect(c98Token.connect(recipient).mint(ownerAddress, ethers.utils.parseEther("1")))
+    .to.be.rejectedWith("Ownable: caller is not the owner");  
+  });
+
   it("cannot mint exceeds max supply", async function() {
     const amount = ethers.utils.parseEther((maxSupply + 1).toString());
     await expect(c98Token.connect(owner).mint(ownerAddress, amount))
@@ -54,6 +65,16 @@ describe("Coin98 token", async function() {
     const balanceAfter = await c98Token.balanceOf(ownerAddress);
     expect(balanceAfter).to.equal(balanceBefore.sub(amount));
   });
+
+  it("cannot freeze token without ownership", async function() {
+    await expect(c98Token.connect(recipient).freeze())
+    .to.be.rejectedWith("Ownable: caller is not the owner");
+  })
+
+  it("cannot unfreeze token without ownership", async function() {
+    await expect(c98Token.connect(recipient).unfreeze())
+    .to.be.rejectedWith("Ownable: caller is not the owner");
+  })
 
   it("cannot burn exceeds balance", async function() {
     const amount = ethers.utils.parseEther("1001");
@@ -121,6 +142,16 @@ describe("Coin98 token", async function() {
     await anotherC98Token.connect(owner).transfer(c98Token.address, initialBalance);
     await c98Token.connect(owner).withdraw(anotherC98Token.address, recipientAddress, initialBalance);
     expect(await anotherC98Token.balanceOf(recipientAddress)).to.equal(initialBalance);
+  });
+
+  it("cannot rescue accidentally sent token without ownership", async function() {
+    const tokenFactory = await ethers.getContractFactory("Coin98");
+    const anotherC98Token = await tokenFactory.connect(owner).deploy();
+    const initialBalance = ethers.utils.parseEther("1000");
+    await anotherC98Token.connect(owner).mint(ownerAddress, initialBalance);
+    await anotherC98Token.connect(owner).transfer(c98Token.address, initialBalance);
+    await expect(c98Token.connect(recipient).withdraw(anotherC98Token.address, recipientAddress, initialBalance))
+    .to.be.rejectedWith("Ownable: caller is not the owner");
   });
 
   it("should approve tokens", async function() {
