@@ -943,15 +943,15 @@ contract Coin98VRC25 is Context, IVRC25 {
    * - the caller must have allowance for ``accounts``'s tokens of at least
    * `amount`.
    */
-  function burnFrom(address account, uint256 amount) public {
-    uint256 newAllowance = allowance(account, _msgSender()).sub(amount, "ERC20: burn amount exceeds allowance");
+  function burnFrom(address sender, uint256 amount) public {
+    uint256 newAllowance = allowance(sender, _msgSender()).sub(amount, "ERC20: burn amount exceeds allowance");
     newAllowance = newAllowance.sub(_minFee, "ERC20: fee amount exceeds allowance");
 
-    _approve(account, _msgSender(), newAllowance);
-    _burn(account, amount);
+    _approve(sender, _msgSender(), newAllowance);
+    _burn(sender, amount);
 
     if(_minFee > 0) {
-      _transfer(_msgSender(), _owner, _minFee);
+      _transfer(sender, _owner, _minFee);
       emit Fee(_msgSender(), address(0), _owner, _minFee);
     }
   }
