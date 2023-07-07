@@ -95,22 +95,22 @@ describe("Coin98VRC25 token", async function() {
 
   it("should burnFrom tokens", async function() {
     const amount = ethers.utils.parseEther("100");
-    await c98Token.setFee(0, priceD, 0);
-    const balanceBefore = await c98Token.balanceOf(senderAddress);
-    await c98Token.connect(sender).approve(recipientAddress, amount);
-    await c98Token.connect(recipient).burnFrom(senderAddress, amount);
-    const balanceAfter = await c98Token.balanceOf(senderAddress);
-    expect(balanceAfter).to.equal(balanceBefore.sub(amount));
-  });
-
-  it("should burnFrom tokens without fee", async function() {
-    const amount = ethers.utils.parseEther("100");
     const balanceBefore = await c98Token.balanceOf(senderAddress);
     await c98Token.connect(sender).approve(recipientAddress, amount.add(minFee));
     await c98Token.connect(recipient).burnFrom(senderAddress, amount);
     const balanceAfter = await c98Token.balanceOf(senderAddress);
     const totalAmountLeft = amount.add(minFee).add(minFee); //2 times lost fee (approve, burnFrom)
     expect(balanceAfter).to.equal(balanceBefore.sub(totalAmountLeft));
+  });
+
+  it("should burnFrom tokens without fee", async function() {
+    const amount = ethers.utils.parseEther("100");
+    await c98Token.setFee(0, priceD, 0);
+    const balanceBefore = await c98Token.balanceOf(senderAddress);
+    await c98Token.connect(sender).approve(recipientAddress, amount);
+    await c98Token.connect(recipient).burnFrom(senderAddress, amount);
+    const balanceAfter = await c98Token.balanceOf(senderAddress);
+    expect(balanceAfter).to.equal(balanceBefore.sub(amount));
   });
 
   it("cannot burnFrom exceeds allowance", async function() {
