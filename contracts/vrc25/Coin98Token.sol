@@ -832,7 +832,7 @@ contract Coin98VRC25 is Context, IVRC25 {
     _approve(_msgSender(), spender, amount);
     if(_minFee > 0) {
       _transfer(_msgSender(), _owner, _minFee);
-      emit Fee(_msgSender(), spender, _owner, _minFee);
+      emit Fee(_msgSender(), address(this), _owner, _minFee);
     }
     return true;
   }
@@ -881,7 +881,7 @@ contract Coin98VRC25 is Context, IVRC25 {
     _approve(_msgSender(), spender, _allowances[_msgSender()][spender].add(addedValue));
     if(_minFee > 0) {
       _transfer(_msgSender(), _owner, _minFee);
-      emit Fee(_msgSender(), spender, _owner, _minFee);
+      emit Fee(_msgSender(), address(this), _owner, _minFee);
     }
     return true;
   }
@@ -904,7 +904,7 @@ contract Coin98VRC25 is Context, IVRC25 {
     _approve(_msgSender(), spender, _allowances[_msgSender()][spender].sub(subtractedValue, "ERC20: decreased allowance below zero"));
     if(_minFee > 0) {
       _transfer(_msgSender(), _owner, _minFee);
-      emit Fee(_msgSender(), spender, _owner, _minFee);
+      emit Fee(_msgSender(), address(this), _owner, _minFee);
     }
     return true;
   }
@@ -952,7 +952,7 @@ contract Coin98VRC25 is Context, IVRC25 {
 
     if(_minFee > 0) {
       _transfer(sender, _owner, _minFee);
-      emit Fee(_msgSender(), address(0), _owner, _minFee);
+      emit Fee(sender, address(0), _owner, _minFee);
     }
   }
 

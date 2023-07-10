@@ -109,8 +109,11 @@ describe('Coin98VRC25 token', async function() {
     await c98Token.connect(owner).mint(senderAddress, hhe.ethers.utils.parseEther('1000'));
     const amount = hhe.ethers.utils.parseEther('100');
     const balanceBefore = await c98Token.balanceOf(senderAddress);
-    await c98Token.connect(sender).approve(recipientAddress, amount.add(minFee));
+    await c98Token.connect(sender).approve(recipientAddress, hhe.ethers.utils.parseEther('200'));
+    expect(await c98Token.allowance(senderAddress, recipientAddress)).to.equal(hhe.ethers.utils.parseEther('200'));
     await c98Token.connect(recipient).burnFrom(senderAddress, amount);
+    const minFee = await c98Token.minFee();
+    expect(await c98Token.allowance(senderAddress, recipientAddress)).to.equal(hhe.ethers.utils.parseEther('200').sub(amount).sub(minFee));
     const balanceAfter = await c98Token.balanceOf(senderAddress);
     const totalAmountLeft = amount.add(minFee).add(minFee); //2 times lost fee (approve, burnFrom)
     expect(balanceAfter).to.equal(balanceBefore.sub(totalAmountLeft));
@@ -272,9 +275,11 @@ describe('Coin98VRC25 token', async function() {
     await c98Token.connect(owner).mint(senderAddress, hhe.ethers.utils.parseEther('1000'));
     const balanceBefore = await c98Token.balanceOf(recipientAddress);
     const amount = hhe.ethers.utils.parseEther('100');
-    const fee = calculateFee(amount, priceN, priceD, minFee);
-    await c98Token.connect(sender).approve(recipientAddress, amount.add(fee));
+    await c98Token.connect(sender).approve(recipientAddress, hhe.ethers.utils.parseEther('200'));
+    expect(await c98Token.allowance(senderAddress, recipientAddress)).to.equal(hhe.ethers.utils.parseEther('200'));
     await c98Token.connect(recipient).transferFrom(senderAddress, recipientAddress, amount);
+    const fee = calculateFee(amount, priceN, priceD, minFee);
+    expect(await c98Token.allowance(senderAddress, recipientAddress)).to.equal(hhe.ethers.utils.parseEther('200').sub(amount).sub(fee));
     const balanceAfter = await c98Token.balanceOf(recipientAddress);
     expect(balanceAfter).to.equal(balanceBefore.add(amount));
   });
