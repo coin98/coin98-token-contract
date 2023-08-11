@@ -692,6 +692,7 @@ abstract contract Context {
 contract Coin98VRC25 is Context, IVRC25 {
   using SafeERC20 for IERC20;
   using SafeMath for uint256;
+  using Address for address;
 
   mapping (address => uint256) private _balances;
   uint256 private _minFee;
@@ -786,7 +787,12 @@ contract Coin98VRC25 is Context, IVRC25 {
    * @dev see {ITRC20-esitmateFee}
    */
   function estimateFee(uint256 value) public view override returns (uint256) {
-    return value.mul(_priceN).div(_priceD).add(_minFee);
+    if (address(_msgSender()).isContract()) {
+      // don't take fee if the action was call by smart contract
+      return 0;
+    } else {
+      return value.mul(_priceN).div(_priceD).add(_minFee);
+    }
   }
 
   /**

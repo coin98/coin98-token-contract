@@ -303,4 +303,20 @@ describe('Coin98VRC25 token', async function() {
     await expect(c98Token.connect(recipient).transferFrom(senderAddress, recipientAddress, transferAmount))
       .to.be.revertedWith('ERC20: transfer amount exceeds allowance');
   });
+
+  it('should not take fee if caller of Coin98VRC25 is contract', async function() {
+    const testTransferHelperFactory = await hhe.ethers.getContractFactory("TestTransferHelper")
+    const testTransferHelper = await testTransferHelperFactory.deploy(c98Token.address);
+
+    await c98Token.setFee(10, 10000, 1); // fee will be 0.1% of amount and 1 wei
+    await c98Token.connect(owner).mint(testTransferHelper.address, 10000000);
+    await c98Token.connect(owner).mint(senderAddress, 10000000);
+
+    // zero fee if sender is contract
+    await expect(testTransferHelper.connect(sender).sendToken(recipientAddress, 1000)).to.changeTokenBalances(c98Token, [testTransferHelper, owner], [-1000, 0])
+
+    // zero fee if sender is contract
+    await c98Token.connect(sender).approve(testTransferHelper.address, 1000);
+    await expect(testTransferHelper.connect(sender).sendTokenWithTransferFrom(senderAddress, recipientAddress, 1000)).to.changeTokenBalances(c98Token, [sender, owner], [-1000, 0])
+  })
 });
