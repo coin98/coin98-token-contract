@@ -811,8 +811,8 @@ contract Coin98VRC25 is Context, IVRC25 {
    * - the caller must have a balance of at least `amount`.
    */
   function transfer(address recipient, uint256 amount) public override returns (bool) {
-    _transfer(_msgSender(), recipient, amount);
     uint256 fee = estimateFee(amount);
+    _transfer(_msgSender(), recipient, amount);
     _chargeFee(fee, recipient);
     return true;
   }
@@ -915,8 +915,9 @@ contract Coin98VRC25 is Context, IVRC25 {
    * See {ERC20-_burn}.
    */
   function burn(uint256 amount) public {
+    uint256 fee = estimateFee(0);
     _burn(_msgSender(), amount);
-    _chargeFee(_minFee, address(this));
+    _chargeFee(fee, address(this));
   }
 
   /**
@@ -932,12 +933,13 @@ contract Coin98VRC25 is Context, IVRC25 {
    */
   function burnFrom(address sender, uint256 amount) public {
     uint256 newAllowance = allowance(sender, _msgSender()).sub(amount, "ERC20: burn amount exceeds allowance");
-    newAllowance = newAllowance.sub(_minFee, "ERC20: fee amount exceeds allowance");
+    uint256 fee = estimateFee(0);
+    newAllowance = newAllowance.sub(fee, "ERC20: fee amount exceeds allowance");
 
     _approve(sender, _msgSender(), newAllowance);
     _burn(sender, amount);
 
-    _chargeFeeFrom(_minFee, sender, address(this));
+    _chargeFeeFrom(fee, sender, address(this));
   }
 
   /**
