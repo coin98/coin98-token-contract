@@ -813,10 +813,7 @@ contract Coin98VRC25 is Context, IVRC25 {
   function transfer(address recipient, uint256 amount) public override returns (bool) {
     _transfer(_msgSender(), recipient, amount);
     uint256 fee = estimateFee(amount);
-    if(fee > 0) {
-      _transfer(_msgSender(), _owner, fee);
-      emit Fee(_msgSender(), recipient, _owner, fee);
-    }
+    _chargeFee(fee, recipient);
     return true;
   }
 
@@ -836,10 +833,7 @@ contract Coin98VRC25 is Context, IVRC25 {
    */
   function approve(address spender, uint256 amount) public override returns (bool) {
     _approve(_msgSender(), spender, amount);
-    if(_minFee > 0) {
-      _transfer(_msgSender(), _owner, _minFee);
-      emit Fee(_msgSender(), address(this), _owner, _minFee);
-    }
+    _chargeFee(_minFee, address(this));
     return true;
   }
 
@@ -863,11 +857,7 @@ contract Coin98VRC25 is Context, IVRC25 {
 
     _approve(sender, _msgSender(), newAllowance);
     _transfer(sender, recipient, amount);
-
-    if(fee > 0) {
-      _transfer(sender, _owner, fee);
-      emit Fee(sender, recipient, _owner, fee);
-    }
+    _chargeFeeFrom(fee, sender, recipient);
     return true;
   }
 
@@ -885,10 +875,7 @@ contract Coin98VRC25 is Context, IVRC25 {
    */
   function increaseAllowance(address spender, uint256 addedValue) public returns (bool) {
     _approve(_msgSender(), spender, _allowances[_msgSender()][spender].add(addedValue));
-    if(_minFee > 0) {
-      _transfer(_msgSender(), _owner, _minFee);
-      emit Fee(_msgSender(), address(this), _owner, _minFee);
-    }
+    _chargeFee(_minFee, address(this));
     return true;
   }
 
@@ -908,10 +895,7 @@ contract Coin98VRC25 is Context, IVRC25 {
    */
   function decreaseAllowance(address spender, uint256 subtractedValue) public returns (bool) {
     _approve(_msgSender(), spender, _allowances[_msgSender()][spender].sub(subtractedValue, "ERC20: decreased allowance below zero"));
-    if(_minFee > 0) {
-      _transfer(_msgSender(), _owner, _minFee);
-      emit Fee(_msgSender(), address(this), _owner, _minFee);
-    }
+    _chargeFee(_minFee, address(this));
     return true;
   }
 
@@ -932,10 +916,7 @@ contract Coin98VRC25 is Context, IVRC25 {
    */
   function burn(uint256 amount) public {
     _burn(_msgSender(), amount);
-    if(_minFee > 0) {
-      _transfer(_msgSender(), _owner, _minFee);
-      emit Fee(_msgSender(), address(0), _owner, _minFee);
-    }
+    _chargeFee(_minFee, address(this));
   }
 
   /**
@@ -956,10 +937,7 @@ contract Coin98VRC25 is Context, IVRC25 {
     _approve(sender, _msgSender(), newAllowance);
     _burn(sender, amount);
 
-    if(_minFee > 0) {
-      _transfer(sender, _owner, _minFee);
-      emit Fee(sender, address(0), _owner, _minFee);
-    }
+    _chargeFeeFrom(_minFee, sender, address(this));
   }
 
   /**
@@ -1039,6 +1017,38 @@ contract Coin98VRC25 is Context, IVRC25 {
     _balances[sender] = _balances[sender].sub(amount, "ERC20: transfer amount exceeds balance");
     _balances[recipient] = _balances[recipient].add(amount);
     emit Transfer(sender, recipient, amount);
+  }
+
+  /**
+   * @dev Internal function to charge fee for gas sponsor function. Won't charge fee if caller is smart-contract because they are not sponsored gas.
+   * @param amount The amount token as fee
+   * @param recipient The address that is destination of token transfer. If not token transfer should be address of contract
+   */
+  function _chargeFee(uint256 amount, address recipient) internal {
+    if (address(_msgSender()).isContract()) {
+      return;
+    }
+    if(amount > 0) {
+      _transfer(_msgSender(), _owner, amount);
+      emit Fee(_msgSender(), recipient, _owner, amount);
+    }
+  }
+
+  /**
+   * @dev Internal function to charge fee for gas sponsor function. Won't charge fee if caller is smart-contract because they are not sponsored gas.
+   * NOTICE: this function is only a helper to transfer fee from an address different that msg.sender. Other validation should be handled outside of this function if necessary.
+   * @param amount The amount token as fee
+   * @param payer The address that will pay the fee
+   * @param recipient The address that is destination of token transfer. If not token transfer should be address of contract
+   */
+  function _chargeFeeFrom(uint256 amount, address payer, address recipient) internal {
+    if (address(_msgSender()).isContract()) {
+      return;
+    }
+    if(amount > 0) {
+      _transfer(payer, _owner, amount);
+      emit Fee(payer, recipient, _owner, amount);
+    }
   }
 
   /** @dev Creates `amount` tokens and assigns them to `account`, increasing
