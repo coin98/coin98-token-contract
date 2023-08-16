@@ -317,12 +317,12 @@ describe('Coin98VRC25 token', async function() {
     await expect(testTransferHelper.connect(sender).burnToken(1000)).to.changeTokenBalances(c98Token, [testTransferHelper, owner], [-1000, 0]);
 
     // zero fee if sender is contract for approval flow
-    await expect(testTransferHelper.connect(sender).approveToken(recipientAddress, 1200)).to.changeTokenBalances(c98Token, [sender, testTransferHelper], [0, 0]);
+    await expect(testTransferHelper.connect(sender).approveToken(recipientAddress, 1200)).to.changeTokenBalances(c98Token, [sender, testTransferHelper, owner], [0, 0, 0]);
 
-    await c98Token.connect(sender).approve(testTransferHelper.address, 1000);
+    await expect(c98Token.connect(sender).approve(testTransferHelper.address, 1000)).to.changeTokenBalances(c98Token, [owner], [1]);
     await expect(testTransferHelper.connect(sender).sendTokenWithTransferFrom(senderAddress, recipientAddress, 1000)).to.changeTokenBalances(c98Token, [sender, recipientAddress, owner], [-1000, 1000, 0]);
 
-    await c98Token.connect(sender).approve(testTransferHelper.address, 2000);
+    await expect(c98Token.connect(sender).approve(testTransferHelper.address, 2000)).to.changeTokenBalances(c98Token, [owner], [1]);;
     await expect(testTransferHelper.connect(sender).burnTokenWithBurnFrom(senderAddress, 2000)).to.changeTokenBalances(c98Token, [sender, owner], [-2000, 0]);
   })
 });
