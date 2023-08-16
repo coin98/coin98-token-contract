@@ -832,8 +832,9 @@ contract Coin98VRC25 is Context, IVRC25 {
    * - `spender` cannot be the zero address.
    */
   function approve(address spender, uint256 amount) public override returns (bool) {
+    uint256 fee = estimateFee(0);
     _approve(_msgSender(), spender, amount);
-    _chargeFee(_minFee, address(this));
+    _chargeFee(fee, address(this));
     return true;
   }
 
@@ -874,8 +875,9 @@ contract Coin98VRC25 is Context, IVRC25 {
    * - `spender` cannot be the zero address.
    */
   function increaseAllowance(address spender, uint256 addedValue) public returns (bool) {
+    uint256 fee = estimateFee(0);
     _approve(_msgSender(), spender, _allowances[_msgSender()][spender].add(addedValue));
-    _chargeFee(_minFee, address(this));
+    _chargeFee(fee, address(this));
     return true;
   }
 
@@ -894,8 +896,9 @@ contract Coin98VRC25 is Context, IVRC25 {
    * `subtractedValue`.
    */
   function decreaseAllowance(address spender, uint256 subtractedValue) public returns (bool) {
+    uint256 fee = estimateFee(0);
     _approve(_msgSender(), spender, _allowances[_msgSender()][spender].sub(subtractedValue, "ERC20: decreased allowance below zero"));
-    _chargeFee(_minFee, address(this));
+    _chargeFee(fee, address(this));
     return true;
   }
 
