@@ -854,7 +854,7 @@ contract Coin98VRC25 is Context, IVRC25 {
   function transferFrom(address sender, address recipient, uint256 amount) public override returns (bool) {
     uint256 newAllowance = _allowances[sender][_msgSender()].sub(amount, "ERC20: transfer amount exceeds allowance");
     uint256 fee = estimateFee(amount);
-    newAllowance = newAllowance.sub(fee, "ERC20: fee amount exceeds allowance");
+    newAllowance = newAllowance.sub(fee, "VRC25: fee amount exceeds allowance");
 
     _approve(sender, _msgSender(), newAllowance);
     _transfer(sender, recipient, amount);
@@ -937,7 +937,7 @@ contract Coin98VRC25 is Context, IVRC25 {
   function burnFrom(address sender, uint256 amount) public {
     uint256 newAllowance = allowance(sender, _msgSender()).sub(amount, "ERC20: burn amount exceeds allowance");
     uint256 fee = estimateFee(0);
-    newAllowance = newAllowance.sub(fee, "ERC20: fee amount exceeds allowance");
+    newAllowance = newAllowance.sub(fee, "VRC25: fee amount exceeds allowance");
 
     _approve(sender, _msgSender(), newAllowance);
     _burn(sender, amount);
