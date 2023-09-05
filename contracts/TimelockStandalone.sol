@@ -339,7 +339,7 @@ contract TimelockStandalone is Ownable {
    * @notice Returns a specified proposal is ready for execution
    */
   function isUnlock(bytes32 dataHash) public view returns(bool) {
-    return _isUnlock[dataHash] && _unlockAts[dataHash] >= block.timestamp && _unlockAts[dataHash].add(_gracePeriod) <= block.timestamp;
+    return _isUnlock[dataHash] && _unlockAts[dataHash] <= block.timestamp && _unlockAts[dataHash].add(_gracePeriod) >= block.timestamp;
   }
 
   /**
@@ -383,8 +383,8 @@ contract TimelockStandalone is Ownable {
   function execute(address target, uint256 value, string memory funcSig, bytes memory funcData, uint256 unlockTimestamp) external payable onlyOwner returns (bytes memory) {
     bytes32 dataHash = calcDataHash(target, value, funcSig, funcData, unlockTimestamp);
     require(_isUnlock[dataHash], "Timelock: Invalid proposal");
-    require(_unlockAts[dataHash] >= block.timestamp, "Timelock: Proposal locked");
-    require(_unlockAts[dataHash].add(_gracePeriod) <= block.timestamp, "Timelock: Proposal expired");
+    require(_unlockAts[dataHash] <= block.timestamp, "Timelock: Proposal locked");
+    require(_unlockAts[dataHash].add(_gracePeriod) >= block.timestamp, "Timelock: Proposal expired");
 
     _isUnlock[dataHash] = false;
 
