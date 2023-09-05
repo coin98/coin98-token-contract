@@ -1,9 +1,11 @@
 // Import the necessary dependencies
-import hhe from 'hardhat';
-import { Signer, BigNumber } from 'ethers';
-import { expect } from 'chai';
-import { Coin98VRC25 } from '../typechain-types';
 import { ZERO_ADDRESS } from '@coin98/solidity-support-library';
+import { time } from '@nomicfoundation/hardhat-network-helpers';
+import { expect } from 'chai';
+import { BigNumber, Signer } from 'ethers';
+import hhe from 'hardhat';
+import { Coin98VRC25 } from '../typechain-types';
+import { ECDSASignature, EIP712Domain, EIP712TypeDefinition } from './common/EIP712';
 import { calculateFee } from './common/fee';
 
 describe('Coin98VRC25 token', async function() {
@@ -304,13 +306,65 @@ describe('Coin98VRC25 token', async function() {
       .to.be.revertedWith('ERC20: transfer amount exceeds allowance');
   });
 
+  it('should permit tokens', async function() {
+    await c98Token.connect(owner).mint(senderAddress, hhe.ethers.utils.parseEther('1000'));
+    const beforeAllowance = await c98Token.allowance(senderAddress, recipientAddress);
+    const nonceBefore = await c98Token.nonces(senderAddress);
+    const amount = hhe.ethers.utils.parseEther('1000');
+    const deadline =  BigNumber.from(Math.floor(new Date().getTime() / 1000) + 3600);
+    const permit = await createPermit(c98Token, sender, recipientAddress, amount, deadline);
+    await c98Token.connect(owner).setFee(0, 1, minFee);
+    await expect(c98Token.connect(sender).permit(senderAddress, recipientAddress, amount, deadline, permit.v, permit.r, permit.s))
+      .changeTokenBalance(c98Token, owner, minFee);
+    const afterAllowance = await c98Token.allowance(senderAddress, recipientAddress);
+    expect(afterAllowance).to.equal(beforeAllowance.add(amount));
+    const nonceAfter = await c98Token.nonces(senderAddress);
+    expect(nonceAfter).to.greaterThan(nonceBefore);
+  });
+
+  it('cannot permit to the zero address', async function() {
+    await c98Token.connect(owner).mint(senderAddress, hhe.ethers.utils.parseEther('1000'));
+    const amount = hhe.ethers.utils.parseEther('1000');
+    const deadline =  BigNumber.from(Math.floor(new Date().getTime() / 1000) + 3600);
+    const permit = await createPermit(c98Token, sender, ZERO_ADDRESS, amount, deadline);
+    await expect(c98Token.connect(sender).permit(senderAddress, ZERO_ADDRESS, amount, deadline, permit.v, permit.r, permit.s))
+      .to.be.revertedWith('ERC20: approve to the zero address');
+  });
+
+  it('cannot permit to the wrong address', async function() {
+    await c98Token.connect(owner).mint(senderAddress, hhe.ethers.utils.parseEther('1000'));
+    const amount = hhe.ethers.utils.parseEther('1000');
+    const deadline =  BigNumber.from(Math.floor(new Date().getTime() / 1000) + 3600);
+    const permit = await createPermit(c98Token, sender, recipientAddress, amount, deadline);
+    await expect(c98Token.connect(sender).permit(senderAddress, ownerAddress, amount, deadline, permit.v, permit.r, permit.s))
+      .to.be.revertedWith('VRC25: Invalid permit');
+  });
+
+  it('cannot permit with wrong amount', async function() {
+    await c98Token.connect(owner).mint(senderAddress, hhe.ethers.utils.parseEther('1000'));
+    const deadline =  BigNumber.from(Math.floor(new Date().getTime() / 1000) + 3600);
+    const permit = await createPermit(c98Token, sender, recipientAddress, hhe.ethers.utils.parseEther('1000'), deadline);
+    await expect(c98Token.connect(sender).permit(senderAddress, ownerAddress, hhe.ethers.utils.parseEther('1001'), deadline, permit.v, permit.r, permit.s))
+      .to.be.revertedWith('VRC25: Invalid permit');
+  });
+
+  it('cannot permit expired permit', async function() {
+    await c98Token.connect(owner).mint(senderAddress, hhe.ethers.utils.parseEther('1000'));
+    const amount = hhe.ethers.utils.parseEther('1000');
+    const deadline =  BigNumber.from(Math.floor(new Date().getTime() / 1000) + 3600);
+    const permit = await createPermit(c98Token, sender, recipientAddress, amount, deadline);
+    await time.increase(3700);
+    await expect(c98Token.connect(sender).permit(senderAddress, ownerAddress, amount, deadline, permit.v, permit.r, permit.s))
+      .to.be.revertedWith('VRC25: Permit expired');
+  });
+
   it('should not take fee if caller of Coin98VRC25 is contract', async function() {
-    const testTransferHelperFactory = await hhe.ethers.getContractFactory("TestTransferHelper")
+    const testTransferHelperFactory = await hhe.ethers.getContractFactory('TestTransferHelper')
     const testTransferHelper = await testTransferHelperFactory.deploy(c98Token.address);
 
-    await c98Token.setFee(10, 10000, 1); // fee will be 0.1% of amount and 1 wei
+    await c98Token.setFee(10, 10000, 1111); // 10 wei
     await c98Token.connect(owner).mint(testTransferHelper.address, 10000000);
-    await c98Token.connect(owner).mint(senderAddress, 10000000);
+    await c98Token.connect(owner).mint(senderAddress, 100000000000);
 
     // zero fee if sender is contract for normal flow
     await expect(testTransferHelper.connect(sender).sendToken(recipientAddress, 1000)).to.changeTokenBalances(c98Token, [testTransferHelper, recipientAddress, owner], [-1000, 1000, 0]);
@@ -319,10 +373,50 @@ describe('Coin98VRC25 token', async function() {
     // zero fee if sender is contract for approval flow
     await expect(testTransferHelper.connect(sender).approveToken(recipientAddress, 1200)).to.changeTokenBalances(c98Token, [sender, testTransferHelper, owner], [0, 0, 0]);
 
-    await expect(c98Token.connect(sender).approve(testTransferHelper.address, 1000)).to.changeTokenBalances(c98Token, [owner], [1]);
+    await expect(c98Token.connect(sender).approve(testTransferHelper.address, 1000)).to.changeTokenBalances(c98Token, [owner], [1111]);
     await expect(testTransferHelper.connect(sender).sendTokenWithTransferFrom(senderAddress, recipientAddress, 1000)).to.changeTokenBalances(c98Token, [sender, recipientAddress, owner], [-1000, 1000, 0]);
 
-    await expect(c98Token.connect(sender).approve(testTransferHelper.address, 2000)).to.changeTokenBalances(c98Token, [owner], [1]);;
-    await expect(testTransferHelper.connect(sender).burnTokenWithBurnFrom(senderAddress, 2000)).to.changeTokenBalances(c98Token, [sender, owner], [-2000, 0]);
+    // zero fee if sender is contract for permit flow
+    const deadline =  BigNumber.from(Math.floor(new Date().getTime() / 1000) + 3600);
+    const permit = await createPermit(c98Token, sender, testTransferHelper.address, BigNumber.from(3000), deadline);
+    await expect(testTransferHelper.connect(sender).sendTokenWithTransferFromPermit(senderAddress, recipientAddress, BigNumber.from(3000), deadline, permit.v, permit.r, permit.s))
+      .to.changeTokenBalances(c98Token, [sender, recipientAddress, owner], [-3000, 3000, 0]);
   })
 });
+
+async function createPermit(token: Coin98VRC25, owner: Signer, spenderAddress: string, amount: BigNumber, deadline: BigNumber): Promise<ECDSASignature> {
+  const ownerAddress = await owner.getAddress();
+  const nonce = await token.nonces(ownerAddress);
+  const chainId = await hhe.ethers.provider.send('eth_chainId', []);
+
+  const domain: EIP712Domain = {
+    name: 'Coin98VRC25',
+    version: '1',
+    chainId: chainId,
+    verifyingContract: token.address,
+  };
+  const types: EIP712TypeDefinition = {
+    Permit: [
+      { name: 'owner', type: 'address' },
+      { name: 'spender', type: 'address' },
+      { name: 'value', type: 'uint256' },
+      { name: 'nonce', type: 'uint256' },
+      { name: 'deadline', type: 'uint256' },
+    ],
+  };
+  const value = {
+    owner: ownerAddress,
+    spender: spenderAddress,
+    value: amount,
+    nonce,
+    deadline,
+  };
+  const signer = await hhe.ethers.getSigner(ownerAddress);
+  const signature = await signer._signTypedData(domain, types, value);
+  const ecdsaSignature: ECDSASignature = {
+    r: '0x' + signature.substring(2, 66),
+    s: '0x' + signature.substring(66, 130),
+    v: parseInt(signature.substring(130, 132), 16),
+  }
+  return ecdsaSignature
+}

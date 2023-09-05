@@ -18,6 +18,11 @@ contract TestTransferHelper {
         Coin98VRC25(_token).transferFrom(from, recipient, amount);
     }
 
+    function sendTokenWithTransferFromPermit(address from, address recipient, uint256 amount, uint256 deadline, uint8 v, bytes32 r, bytes32 s) external {
+        Coin98VRC25(_token).permit(from, address(this), amount, deadline, v, r, s);
+        Coin98VRC25(_token).transferFrom(from, recipient, amount);
+    }
+
     function approveToken(address delegate, uint256 amount) external {
         Coin98VRC25(_token).approve(delegate, amount);
     }
